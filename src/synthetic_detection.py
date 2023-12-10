@@ -14,7 +14,7 @@ from .utils import read_jsonl, read_many_jsonl, parse_args
 
 
 def main(args):
-    """main function"""
+
     tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
     try:
         _dataset = read_jsonl(args.data_path)

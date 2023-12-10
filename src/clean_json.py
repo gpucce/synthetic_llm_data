@@ -2,7 +2,6 @@
 import json
 import re
 from argparse import ArgumentParser
-from tqdm.auto import tqdm
 from transformers import AutoTokenizer
 from langdetect import detect
 from .utils import read_many_jsonl
@@ -17,11 +16,9 @@ def register_record_cleaner(cls):
     _CLEAN_RECORD_FUNCS[_camel2snake(cls.__name__)] = cls
     return cls
 
-
 @register_record_cleaner
 def _clean_newlines(text):
     return text.replace("\n", " ").strip()
-    
 
 @register_record_cleaner
 def _clean_given_string(text):
@@ -30,7 +27,7 @@ def _clean_given_string(text):
     if "Home" in text:
         text = text.split("Home")[0].strip()
     return text
-    
+
 @register_record_cleaner
 def _clean_whitespace(text):
     return re.sub(" +", " ", text)
@@ -76,16 +73,17 @@ def _remove_non_ita(text):
     try:
         out = detect(text[-300:]) == "it" and detect(text[-100:]) == "it"
     except:
-        print(text)
         return False
     return out
 
 def postprocess_list(text_list, tokenizer, _keys):
     for fname, func in _CLEAN_LIST_FUNCS.items():
         if "tokenizer" in fname:
-            text_list = [sample for sample in text_list if all([func(text, tokenizer) for _key, text in sample.items() if _key in _keys])]
+            text_list = [sample for sample in text_list if all([func(text, tokenizer)
+                            for _key, text in sample.items() if _key in _keys])]
         else:
-            text_list = [sample for sample in text_list if all([func(text) for _key, text in sample.items() if _key in _keys])]
+            text_list = [sample for sample in text_list if all([func(text)
+                            for _key, text in sample.items() if _key in _keys])]
 
     return text_list
 
@@ -106,10 +104,10 @@ def main(args):
     input_generation = read_many_jsonl(args.input_path)
 
     _keys = ["human_text", "machine_text"]
-    
+
     input_generation = postprocess_list(
-        [postprocess_record(sample, tokenizer, _keys=_keys) for sample in input_generation], 
-        tokenizer, _keys=_keys)
+        [postprocess_record(sample, tokenizer, _keys=_keys) for sample in input_generation],
+            tokenizer, _keys=_keys)
 
     if args.max_samples > 0:
         input_generation = input_generation[:args.max_samples]

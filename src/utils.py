@@ -1,6 +1,7 @@
 """Utility functions for data handling"""
 
 import os
+import re
 import json
 import time
 import shutil
@@ -10,6 +11,9 @@ from tqdm.auto import tqdm
 import datasets
 
 
+def split_by_full_stop(text):
+    return re.split(r"(?<![A-Z\d])[.!?] +(?=[A-Z])", text)
+
 def read_jsonl(file_path):
     """Read a jsonl file into a list of dicts"""
     with open(file_path, encoding="utf-8") as jf:
@@ -17,7 +21,8 @@ def read_jsonl(file_path):
     return lines
 
 def read_many_jsonl(dir_path):
-    jsonls = [os.path.join(dir_path, i) for i in os.listdir(dir_path) if i.endswith("jsonl") or i.endswith("json")]
+    jsonls = [os.path.join(dir_path, i) for i in os.listdir(dir_path)
+                if i.endswith("jsonl") or i.endswith("json")]
     jsonls.sort()
     jsonls = [read_jsonl(i) for i in jsonls]
     lines = []
@@ -38,7 +43,7 @@ def read_PeerRead(dir_path):
             if train_test_dev.name not in ["train", "test", "dev"]:
                 continue
             for file in (train_test_dev / "reviews").iterdir():
-                
+
                 with open(file, "r") as jf:
                     current_file = json.load(jf)
                 for comment in current_file["reviews"]:
@@ -73,7 +78,7 @@ def str2bool(v):
 def save_distributed_and_collect_on_main_rank(
         data_shard,
         args,
-        global_rank, 
+        global_rank,
         global_n_devices
     ):
 
