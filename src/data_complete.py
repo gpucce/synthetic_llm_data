@@ -3,12 +3,20 @@ import pdb
 import json
 import re
 import random
+import os
+from argparse import ArgumentParser
 from tqdm.auto import tqdm
 # from nltk import sent_tokenize
 import transformers as ts
+import datasets
 import torch
+from pathlib import Path
 
-from .utils import read_PeerRead
+from .utils import (
+    read_PeerRead, 
+    str2bool,
+    save_distributed_and_collect_on_main_rank
+)
 
 # old_prompt = """Task:
 # Complete a partially-written peer review of the paper.
@@ -47,147 +55,165 @@ def parse_completion(completion):
 def split_by_full_stop(text):
     return re.split(r"(?<![A-Z\d])[.!?] +(?=[A-Z])", text)
 
-def generate(text, model, tokenizer):
-    ids = tokenizer(text, truncation=True, return_tensors='pt')
-    out = model.generate(
-        ids['input_ids'].to(model.device),
-        # min_new_tokens=10,
-        max_new_tokens=max(len(ids['input_ids']), 1024),
-        return_dict_in_generate=True,
-        output_scores=True,
-        no_repeat_ngram_size=6,
-        repetition_penalty=1.05,
-    )
-    return tokenizer.decode(out.sequences[0], True)
-
-def get_prompt(data_item):
+def get_prompt(data_item, model_name):
     """
     A part of human review could be cut off 
     1. randomly at a word present in 1/10th to 5/10th of the review.
     2. randomly at a closest sentence boundary in the 1/10th to 5/10th of the review.
     """
 
-    human_reviews = data_item["reviews"]
-    human_end_boundaries = []
-    cut_at_sentences = []
-    task3_prompts = []
+    human_review = data_item["comment"]
+    cut_at_sentence = random.randint(0, 2) > 1
 
-    # select one out of all the human reviews available
-    # human_review = human_reviews[random.randint(0, len(human_review) - 1)]
-    for human_review in human_reviews:
-        human_review = human_review["comments"]
-        cut_at_sentence = random.randint(0, 2) > 1
-        cut_at_sentences.append(cut_at_sentence)
+    sentences = split_by_full_stop(human_review)
+    words = human_review.split(" ")
 
-        sentences = split_by_full_stop(human_review)
-        words = human_review.split(" ")
+    num_of_words = len(words)
+    sentence_boundaries = [0] + [len(sentence.split(" ")) for sentence in sentences]
+    sentence_boundaries = [
+        sum(sentence_boundaries[:i]) for i in range(1, len(sentence_boundaries))
+    ]
 
-        num_of_words = len(words)
+    # selecting human review from 1/10th to the 5/10th of the review
+    selected_human_review_word = random.randint(
+        int(num_of_words / 10), int(num_of_words / 2)
+    )
+    selected_human_review = words[:selected_human_review_word]
 
-        sentence_boundaries = [0] + [len(sentence.split(" ")) for sentence in sentences]
-        sentence_boundaries = [
-            sum(sentence_boundaries[:i]) for i in range(1, len(sentence_boundaries))
+    if cut_at_sentence:
+        # get the closest sentence boundary
+        distance_to_sentence_boundary = [
+            abs(len(selected_human_review) - boundary)
+            for boundary in sentence_boundaries
         ]
+        selected_boundary = sentence_boundaries[
+            distance_to_sentence_boundary.index(min(distance_to_sentence_boundary))
+        ]
+    else:
+        selected_boundary = selected_human_review_word
 
-        # selecting human review from 1/10th to the 5/10th of the review
-        selected_human_review_word = random.randint(
-            int(num_of_words / 10), int(num_of_words / 2)
-        )
-        selected_human_review = words[:selected_human_review_word]
-        if cut_at_sentence:
-            # get the closest sentence boundary
-            distance_to_sentence_boundary = [
-                abs(len(selected_human_review) - boundary)
-                for boundary in sentence_boundaries
-            ]
-            selected_boundary = sentence_boundaries[
-                distance_to_sentence_boundary.index(min(distance_to_sentence_boundary))
-            ]
-        else:
-            selected_boundary = selected_human_review_word
+    num_of_words_to_generate = num_of_words - selected_boundary
+    partial_review = words[:selected_boundary]
+    partial_review = " ".join(partial_review)
 
-        num_of_words_to_generate = num_of_words - selected_boundary
-        partial_review = words[:selected_boundary]
-        partial_review = " ".join(partial_review)
-        updated_prompt = prompt.format(
-            paper_title=data_item["title"],
-            paper_abstract=data_item["abstract"],
-            partial_review=partial_review,
-            num_of_words=num_of_words_to_generate,
-        )
+    updated_prompt = prompt.format(
+        paper_title=data_item["title"],
+        paper_abstract=data_item["abstract"],
+        partial_review=partial_review,
+        num_of_words=num_of_words_to_generate,
+    )
+
+    data_item["machine_text"] = updated_prompt
+    data_item["human_text"] = prompt.format(
+        paper_title=data_item["title"],
+        paper_abstract=data_item["abstract"],
+        partial_review=human_review, 
+        num_of_words=num_of_words_to_generate
+    )
     
-        task3_prompts.append(updated_prompt)
-        human_end_boundaries.append(selected_boundary)
+    data_item["human_end_boundaries"] = selected_boundary
+    data_item["cut_at_sentence"] = cut_at_sentence
 
-    data_item["human_end_boundaries"] = human_end_boundaries
-    data_item["cut_at_sentences"] = cut_at_sentences
-    data_item["task3_prompts"] = task3_prompts
     keys_to_pop = ["chatgpt_reviews", "davinci_reviews", "prompts"]
     for key in keys_to_pop:
         data_item.pop(key, None)
 
-    assert len(data_item["reviews"]) == len(data_item["task3_prompts"])
-
     return data_item
 
-    # return {
-    #     "id": data_item["id"],
-    #     "source": data_item["source"],
-    #     "title": data_item["title"],
-    #     "num_of_words_to_generate": num_of_words_to_generate,
-    #     "human_end_boundary": selected_boundary,
-    #     "cut_at_sentence": cut_at_sentence,
-    #     # "partial_review": partial_review,
-    #     "task3_prompt": updated_prompt,
-    #     "human_review": human_review,
-    #     "partial_review": partial_review,
-    # }
+
+def generate(text, model, tokenizer, is_test=False):
+    if is_test:
+        text = [i[:20] for i in text]
+    tokenizer.pad_token = tokenizer.eos_token
+    ids = tokenizer(
+        text,
+        truncation=True,
+        return_tensors='pt',
+        padding=True,
+        max_length=2048,
+    )
+    out = model.generate(
+        **{i:j.to(model.device) for i,j in ids.items()},
+        # min_new_tokens=10,
+        max_new_tokens=max(ids['input_ids'].shape[1], 512),
+        return_dict_in_generate=True,
+        output_scores=True,
+        no_repeat_ngram_size=6,
+        repetition_penalty=1.05,
+    )
+    return tokenizer.batch_decode(out["sequences"], skip_special_tokens=True)
 
 
-print("Loading the data...")
 
-data = read_PeerRead("/leonardo_scratch/large/userexternal/gpuccett/data/PeerRead/")
-data_keys = list(data[0].keys())
+def parse_args():
+    parser = ArgumentParser()
+    parser.add_argument("--is_test", type=str2bool, default=True)
+    parser.add_argument("--output_file", type=str)
+    parser.add_argument("--max_samples", type=int, default=None)
+    return parser.parse_args()
 
-print('Loading the model...')
-# checkpoint = '/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/tiny-random-llama'
-checkpoint = '/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-7b-hf'
-
-model = ts.AutoModelForCausalLM.from_pretrained(
-    checkpoint,torch_dtype=torch.bfloat16,device_map='auto',)
-
-tokenizer = ts.AutoTokenizer.from_pretrained(checkpoint)
-print('Model successfully loaded.')
+def main(args):
 
 
-outputs = []
+    local_rank = int(os.environ.get("SLURM_LOCALID", 0))
+    global_rank = int(os.environ.get("SLURM_PROCID", 0))
+    world_size = int(os.environ.get("SLURM_NTASKS", 1))
+    is_test = args.is_test
+    
+    print("Loading the data...")
+    
+    # HF dataset
+    # data = read_PeerRead("/leonardo_scratch/large/userexternal/gpuccett/data/PeerRead/")
+    data_files = "/leonardo_scratch/large/userexternal/gpuccett/data/PeerRead_full.jsonl"
+    data = datasets.load_dataset(
+        "json", data_files=data_files)
+    
+    # TODO: change this
+    if "train" in data:
+        data = data["train"]
+    
+    
+    if is_test and args.max_samples is None:
+        args.max_samples = 100
+        
+    if args.max_samples is not None:
+        data = data.select(range(args.max_samples))
 
-for data_item in data:
-    data_item = data_item["data"]
-    item = get_prompt(data_item)
-    task3_prompts = item["task3_prompts"]
-    item["machine_review"] = []
-    for task3_prompt in tqdm(task3_prompts):
-        # try:
-        print(task3_prompt)
-        print('Generating...')
-        complete_review = generate(task3_prompt, model, tokenizer)
-        # print(f"\n\n{'='*50}\nReview:\n", complete_review, f"\n{'='*50}\n")
-        item["machine_review"].append(complete_review)
-    outputs.append(item)
-    with open('outputs.json', 'w') as f:
-        json.dump(outputs, f)
+    
+    data = data.shard(num_shards=world_size, index=global_rank)
+    device = torch.device(local_rank)
+    print('Loading the model...')
+    
+    model_dir = Path('/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/')
+    model_path = 'tiny-random-llama' if is_test else 'llama-2-7b-hf'
+    checkpoint = str(model_dir / model_path)
+    
+    model = ts.AutoModelForCausalLM.from_pretrained(
+        checkpoint, torch_dtype=torch.bfloat16, low_cpu_mem_usage=True)
+    model.to(device)
 
-        # except Exception as e:
-        #     print(e)
-        #     pdb.set_trace()
-        #     item["machine_review"].append("")
-        #     continue
+    tokenizer = ts.AutoTokenizer.from_pretrained(checkpoint)
+    print('Model successfully loaded.')
 
-    with open("PeerRead_review_completions_final.jsonl", "a") as f:
-        f.write(json.dumps(item) + "\n")
+    data = data.map(lambda x: get_prompt(x, Path(checkpoint).name), desc="Generating prompts")
 
-    outputs.append(item)
+    data = data.map(
+        lambda x: {
+            i:j if i != "machine_text" 
+            else generate(j, model, tokenizer, is_test=is_test) 
+            for i,j in x.items()
+        }, desc="Generating machine text", batched=True, batch_size=2 if is_test else 8)
 
-with open("PeerRead_review_completions_final.json", "w") as f:
-    json.dump(outputs, f, indent=4)
+    if "output_file" not in args:
+        args.output_file = f"/leonardo_scratch/large/userexternal/gpuccett/data/PeerRead_synthetic_continuation"
+    
+    save_distributed_and_collect_on_main_rank(
+        data_shard=data, args=args, global_rank=global_rank, global_n_devices=world_size
+    )
+    
+    
+    
+
+
+if __name__ == "__main__":
+    main(parse_args())

@@ -9,7 +9,7 @@ from transformers import (
     TrainingArguments,
 )
 from sklearn.model_selection import train_test_split
-from data_handling.utils import read_jsonl, read_many_jsonl, parse_args
+from .utils import read_jsonl, read_many_jsonl, parse_args
 
 
 

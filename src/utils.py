@@ -2,8 +2,12 @@
 
 import os
 import json
+import time
+import shutil
 from pathlib import Path
 from argparse import ArgumentParser
+from tqdm.auto import tqdm
+import datasets
 
 
 def read_jsonl(file_path):
@@ -25,22 +29,31 @@ def read_many_jsonl(dir_path):
 def read_PeerRead(dir_path):
     path = Path(dir_path)
     all_files = []
+    progressbar = tqdm()
     for conf_data in (path / "data").iterdir():
-        if "arxiv" in str(conf_data) or not conf_data.is_dir():
+        if not conf_data.is_dir():
             continue
+        print(conf_data)
         for train_test_dev in conf_data.iterdir():
             if train_test_dev.name not in ["train", "test", "dev"]:
                 continue
             for file in (train_test_dev / "reviews").iterdir():
+                
                 with open(file, "r") as jf:
                     current_file = json.load(jf)
+                for comment in current_file["reviews"]:
                     all_files.append({
                         "conf":conf_data.name, 
                         "file":file.name,
                         "train_test_dev":train_test_dev.name,
-                        "data":current_file
+                        "title": current_file["title"],
+                        "abstract": current_file["abstract"],
+                        "comment": comment["comments"],                        
                     })
-    return all_files
+
+                    progressbar.update()
+    ds = datasets.Dataset.from_list(all_files)
+    return ds
 
 def parse_args():
     """Parse command line arguments"""
@@ -49,3 +62,54 @@ def parse_args():
     parser.add_argument("--model_name_or_path", type=str, required=True)
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
+
+
+def str2bool(v):
+    """Convert string to boolean"""
+    if isinstance(v, bool):
+        return v
+    return v.lower() in ("yes", "true", "t", "1")
+
+def save_distributed_and_collect_on_main_rank(
+        data_shard,
+        args,
+        global_rank, 
+        global_n_devices
+    ):
+
+    if global_n_devices == 1:
+        data_shard.save_to_disk(args.output_file)
+        return
+
+    file_name_template = "{output_file}_n_shards_{global_n_devices}_shard_id_{shard_id}"
+    local_file_name = file_name_template.format(
+        output_file=args.output_file,
+        global_n_devices=global_n_devices,
+        shard_id=global_rank
+    )
+
+    data_shard.save_to_disk(local_file_name)
+    # molto fatto a mano ma sembra funzionare
+    all_files = [
+        file_name_template.format(
+            output_file=args.output_file,
+            global_n_devices=global_n_devices,
+            shard_id=i
+        )
+        for i in range(global_n_devices)
+    ]
+
+    if global_rank == 0:
+
+        all_data_there = False
+        while not all_data_there:
+            time.sleep(2)
+            all_data_there = all(
+                [(Path(file_name) / "dataset_info.json").exists() for file_name in all_files])
+
+        dataset = datasets.concatenate_datasets([
+                datasets.load_from_disk(file_name) for file_name in all_files])
+
+        dataset.save_to_disk(args.output_file)
+        for i in range(global_n_devices):
+            shutil.rmtree(f"{args.output_file}_n_shards_{global_n_devices}_shard_id_{i}")
