@@ -1,6 +1,7 @@
 """Complete a given text"""
 
 import os
+import re
 from argparse import ArgumentParser
 from pathlib import Path
 # from nltk import sent_tokenize
@@ -13,32 +14,38 @@ from .utils import (str2bool, save_distributed_and_collect_on_main_rank)
 
 datasets.disable_caching()
 
-def generate(text, model, tokenizer, is_test=False):
-    _max_new_tokens = 2048
+def generate(text, llm, params, is_test=False, huggingface_or_vllm="huggingface"):
+    tokenizer = (
+        llm[1] if huggingface_or_vllm == "huggingface"
+        else llm.get_tokenizer())
+
+    max_new_tokens = 2048 - max([len(i) for i in tokenizer(text)])
     if is_test:
         text = [i[:20] for i in text]
-        _max_new_tokens = 512
+        max_new_tokens = 512
 
-    tokenizer.pad_token = tokenizer.eos_token
-    ids = tokenizer(
-        text,
-        return_tensors='pt',
-        padding=True,
-        truncation=True,
-    )
+    if huggingface_or_vllm == "vllm":
+        params.max_tokens = 2048
+        generated = llm.generate(text, sampling_params=params)
+        out = [out.outputs[0].text for out in generated]
+        return [re.sub(" +", " ", i + " " + j) for i,j in zip(text, out)]
 
-    max_new_tokens = max(ids['input_ids'].shape[1], _max_new_tokens)
+    elif huggingface_or_vllm == "huggingface":
+        model = llm[0]
+        tokenizer.pad_token = tokenizer.eos_token
+        ids = tokenizer(text, 
+                return_tensors='pt', padding=True, truncation=True,)
 
-    out = model.generate(
-        **{i:j.to(model.device) for i,j in ids.items()},
-        max_new_tokens=max_new_tokens,
-        # min_new_tokens=max_new_tokens,
-        return_dict_in_generate=True,
-        output_scores=True,
-        no_repeat_ngram_size=6,
-        repetition_penalty=1.05,
-    )
-    return tokenizer.batch_decode(out["sequences"], skip_special_tokens=True)
+        out = model.generate(
+            **{i:j.to(model.device) for i,j in ids.items()},
+            max_new_tokens=max_new_tokens,
+            # min_new_tokens=max_new_tokens,
+            return_dict_in_generate=True,
+            output_scores=True,
+            no_repeat_ngram_size=6,
+            repetition_penalty=1.05,
+        )
+        return tokenizer.batch_decode(out["sequences"], skip_special_tokens=True)
 
 def parse_args():
     parser = ArgumentParser()
@@ -47,14 +54,33 @@ def parse_args():
     parser.add_argument("--max_samples", type=int, default=None)
     parser.add_argument("--model_name_or_path", type=str, required=True)
     parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--tensor_parallel_size", type=int, default=1)
+    parser.add_argument(
+        "--huggingface_or_vllm",
+        type=str,
+        default="huggingface",
+        choices=["huggingface", "vllm"])
     return parser.parse_args()
 
 def main(args):
 
     is_test = args.is_test
 
+    huggingface_or_vllm = args.huggingface_or_vllm
+
+    if huggingface_or_vllm == "vllm":
+        try:
+            from vllm import LLM, SamplingParams
+        except ImportError:
+            raise ImportError("Please install vllm with \"pip install vllm\"")
+
     # local_rank = int(os.environ.get("SLURM_LOCALID", 0))
     # device = torch.device(local_rank)
+
+    use_beam_search = True
+    temp = 0.9
+    topp = 0.9
+    topk = 40
 
     global_rank = int(os.environ.get("SLURM_PROCID", 0))
     world_size = int(os.environ.get("SLURM_NTASKS", 1))
@@ -88,11 +114,32 @@ def main(args):
             args.model_name_or_path = str(model_dir / model_path)
 
     checkpoint = args.model_name_or_path
+    
+    if huggingface_or_vllm == "huggingface":
+        model = ts.AutoModelForCausalLM.from_pretrained(
+            checkpoint, torch_dtype=torch.bfloat16, device_map="auto")
+        tokenizer = ts.AutoTokenizer.from_pretrained(checkpoint)
+        params = None
+        llm = (model, tokenizer)
+        
+    elif huggingface_or_vllm == "vllm":
+        params = SamplingParams(
+            temperature=temp if not use_beam_search else 0,
+            top_p=topp if not use_beam_search else 1,
+            top_k=topk if not use_beam_search else -1,
+            max_tokens=2048,
+            repetition_penalty=1.2,
+            use_beam_search=use_beam_search,
+            best_of=3 if use_beam_search else 1,
+            # ignore_eos=True,
+            skip_special_tokens=True
+        )
 
-    model = ts.AutoModelForCausalLM.from_pretrained(
-        checkpoint, torch_dtype=torch.bfloat16, device_map="auto")
+        llm = LLM(
+            model=checkpoint,
+            tensor_parallel_size=args.tensor_parallel_size,
+        )
 
-    tokenizer = ts.AutoTokenizer.from_pretrained(checkpoint)
     print('Model successfully loaded.')
 
     model_name = Path(checkpoint).name
@@ -102,7 +149,8 @@ def main(args):
     data = data.map(
         lambda x: {
             i:j if i != "machine_text"
-            else generate(j, model, tokenizer, is_test=is_test)
+            else generate(j, llm, params, 
+                        is_test=is_test, huggingface_or_vllm=huggingface_or_vllm)
             for i,j in x.items()
         }, desc="Generating machine text", batched=True, batch_size=args.batch_size)
 
@@ -110,6 +158,7 @@ def main(args):
         args.output_file = "/leonardo_scratch/large/userexternal/" + \
         "gpuccett/data/PeerRead_synthetic_continuation"
     args.output_file += f"_model_{model_name}"
+    args.output_file += f"_hfvllm_{huggingface_or_vllm}"
 
     save_distributed_and_collect_on_main_rank(
         data_shard=data, args=args, global_rank=global_rank, global_n_devices=world_size
