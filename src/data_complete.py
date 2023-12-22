@@ -20,6 +20,7 @@ def generate(text, llm, params, is_test=False, huggingface_or_vllm="huggingface"
         else llm.get_tokenizer())
 
     max_new_tokens = 2048 - max([len(i) for i in tokenizer(text)])
+
     if is_test:
         text = [i[:20] for i in text]
         max_new_tokens = 512
@@ -28,12 +29,13 @@ def generate(text, llm, params, is_test=False, huggingface_or_vllm="huggingface"
         params.max_tokens = 2048
         generated = llm.generate(text, sampling_params=params)
         out = [out.outputs[0].text for out in generated]
-        return [re.sub(" +", " ", i + " " + j) for i,j in zip(text, out)]
+        out = [re.sub(" +", " ", i + " " + j) for i,j in zip(text, out)]
+        return [i[len(j):] for i,j in zip(out, text)]
 
     elif huggingface_or_vllm == "huggingface":
         model = llm[0]
         tokenizer.pad_token = tokenizer.eos_token
-        ids = tokenizer(text, 
+        ids = tokenizer(text,
                 return_tensors='pt', padding=True, truncation=True,)
 
         out = model.generate(
@@ -45,7 +47,20 @@ def generate(text, llm, params, is_test=False, huggingface_or_vllm="huggingface"
             no_repeat_ngram_size=6,
             repetition_penalty=1.05,
         )
-        return tokenizer.batch_decode(out["sequences"], skip_special_tokens=True)
+
+        return [
+            i[len(j):] for i,j in
+            zip(tokenizer.batch_decode(out["sequences"], skip_special_tokens=True),text)
+        ]
+
+def generate_synthetic(x, llm, params, is_test, huggingface_or_vllm):
+    out = x
+    out["machine_review"] = generate(
+        out["prompt"], llm, params,
+        is_test=is_test, huggingface_or_vllm=huggingface_or_vllm)
+
+    out["mixed_review"] = [i+j for i,j in zip(out["truncated_human_review"], out["machine_review"])]
+    return out
 
 def parse_args():
     parser = ArgumentParser()
@@ -72,7 +87,7 @@ def main(args):
         try:
             from vllm import LLM, SamplingParams
         except ImportError:
-            raise ImportError("Please install vllm with \"pip install vllm\"")
+            raise ImportError('Please install vllm with "pip install vllm"')
 
     # local_rank = int(os.environ.get("SLURM_LOCALID", 0))
     # device = torch.device(local_rank)
@@ -89,13 +104,28 @@ def main(args):
 
     # HF dataset
     # data = read_PeerRead("/leonardo_scratch/large/userexternal/gpuccett/data/PeerRead/")
-    data_files = "/leonardo_scratch/large/userexternal/gpuccett/data/PeerRead_full.jsonl"
-    data = datasets.load_dataset(
-        "json", data_files=data_files)
+    # data_files = "/leonardo_scratch/large/userexternal/gpuccett/data/PeerRead_full.jsonl"
+    # data = datasets.load_dataset(
+    #     "json", data_files=data_files)
 
-    # TODO: change this
-    if "train" in data:
-        data = data["train"]
+    base_path = Path("/leonardo_scratch/large/userexternal/gpuccett/data/")
+    base_path /= "semeval2024-private/semeval-taskC/data/"
+    data_files = {
+        "train": str(base_path / "train/train_chatgpt.csv"),
+        "dev":   str(base_path / "dev/dev_chatgpt.csv"),
+        "test":  str(base_path / "test/test_chatgpt.csv")
+    }
+    data = datasets.load_dataset("csv", data_files=data_files)
+
+    splits_uuids = {
+        "train" : data["train"]["uuid"],
+        "dev" : data["dev"]["uuid"],
+        "test" : data["test"]["uuid"],
+    }
+
+    data = datasets.concatenate_datasets([
+        data["train"], data["dev"], data["test"]
+    ])
 
     if is_test and args.max_samples is None:
         args.max_samples = 100
@@ -107,21 +137,21 @@ def main(args):
 
     print('Loading the model...')
 
-    if is_test:
-        if args.model_name_or_path is None:
-            model_dir = Path('/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/')
-            model_path = "tiny-random-llama" if is_test else "llama-2-7b-hf"
-            args.model_name_or_path = str(model_dir / model_path)
+
+    if args.model_name_or_path is None:
+        model_dir = Path('/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/')
+        model_path = "tiny-random-llama" if is_test else "llama-2-7b-hf"
+        args.model_name_or_path = str(model_dir / model_path)
 
     checkpoint = args.model_name_or_path
-    
+
     if huggingface_or_vllm == "huggingface":
         model = ts.AutoModelForCausalLM.from_pretrained(
             checkpoint, torch_dtype=torch.bfloat16, device_map="auto")
         tokenizer = ts.AutoTokenizer.from_pretrained(checkpoint)
         params = None
         llm = (model, tokenizer)
-        
+
     elif huggingface_or_vllm == "vllm":
         params = SamplingParams(
             temperature=temp if not use_beam_search else 0,
@@ -146,13 +176,10 @@ def main(args):
     data = data.map(lambda x: get_semeval_task3_prompt(x, model_name), desc="Generating prompts")
 
     args.batch_size = 2 if is_test else args.batch_size
-    data = data.map(
-        lambda x: {
-            i:j if i != "machine_text"
-            else generate(j, llm, params, 
-                        is_test=is_test, huggingface_or_vllm=huggingface_or_vllm)
-            for i,j in x.items()
-        }, desc="Generating machine text", batched=True, batch_size=args.batch_size)
+    data = data.map(lambda x:
+        generate_synthetic(x, llm, params, is_test=is_test,
+                           huggingface_or_vllm=huggingface_or_vllm),
+        desc="Generating machine text", batched=True, batch_size=args.batch_size)
 
     if "output_file" not in args:
         args.output_file = "/leonardo_scratch/large/userexternal/" + \
@@ -160,9 +187,19 @@ def main(args):
     args.output_file += f"_model_{model_name}"
     args.output_file += f"_hfvllm_{huggingface_or_vllm}"
 
-    save_distributed_and_collect_on_main_rank(
-        data_shard=data, args=args, global_rank=global_rank, global_n_devices=world_size
+    final_dataset = save_distributed_and_collect_on_main_rank(
+        data_shard=data, args=args, global_rank=global_rank,
+        global_n_devices=world_size, save_after_collect=False
     )
+
+    if global_rank == 0:
+        for split, split_uuid in splits_uuids.items():
+            final_dataset.filter(lambda x: x["uuid"] in split_uuid).to_pandas().to_csv(
+                str(base_path / f"{split}/{split}_{model_name}.csv"), index=False
+            )
+            # final_dataset.filter(lambda x: x["uuid"] in split_uuid).to_json(
+            #     str(base_path / f"{split}/{split}_{model_name}.jsonl")
+            # )
 
 
 if __name__ == "__main__":

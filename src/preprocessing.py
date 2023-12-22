@@ -1,5 +1,4 @@
 import random
-
 from .utils import split_by_full_stop
 
 
@@ -71,7 +70,11 @@ def get_semeval_task3_prompt(data_item, model_name):
     2. randomly at a closest sentence boundary in the 1/10th to 5/10th of the review.
     """
 
-    human_review = data_item["comment"]
+
+    human_review = (data_item["full_human_review"]
+        if "full_human_review" in data_item
+        else data_item["human_review"])
+
     cut_at_sentence = random.randint(0, 2) > 1
 
     sentences = split_by_full_stop(human_review)
@@ -112,20 +115,10 @@ def get_semeval_task3_prompt(data_item, model_name):
         num_of_words=num_of_words_to_generate,
     )
 
-    data_item["machine_text_prompt"] = updated_prompt
-    data_item["machine_text"] = updated_prompt
-    data_item["human_text"] = PROMPT_REGISTRY["semeval_task_3"][model_name].format(
-        paper_title=data_item["title"],
-        paper_abstract=data_item["abstract"],
-        partial_review=human_review,
-        num_of_words=num_of_words_to_generate
-    )
-
-    data_item["human_end_boundaries"] = selected_boundary
+    data_item["full_human_review"] = human_review
     data_item["cut_at_sentence"] = cut_at_sentence
-
-    keys_to_pop = ["chatgpt_reviews", "davinci_reviews", "prompts"]
-    for key in keys_to_pop:
-        data_item.pop(key, None)
+    data_item["human_end_boundary"] = selected_boundary
+    data_item["prompt"] = updated_prompt
+    data_item["truncated_human_review"] = partial_review
 
     return data_item

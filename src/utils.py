@@ -79,7 +79,8 @@ def save_distributed_and_collect_on_main_rank(
         data_shard,
         args,
         global_rank,
-        global_n_devices
+        global_n_devices,
+        save_after_collect=True
     ):
 
     if global_n_devices == 1:
@@ -115,6 +116,9 @@ def save_distributed_and_collect_on_main_rank(
         dataset = datasets.concatenate_datasets([
                 datasets.load_from_disk(file_name) for file_name in all_files])
 
-        dataset.save_to_disk(args.output_file)
+        if save_after_collect:
+            dataset.save_to_disk(args.output_file)
         for i in range(global_n_devices):
             shutil.rmtree(f"{args.output_file}_n_shards_{global_n_devices}_shard_id_{i}")
+        return dataset
+
