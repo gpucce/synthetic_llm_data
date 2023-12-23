@@ -10,20 +10,6 @@ from torch.utils.data import Dataset
 
 PATTERN = re.compile(r"<extra_id_\d+>")
 
-class PandasDataset(Dataset):
-    def __init__(self, pd_data):
-        self.df = pd_data
-
-    def __getitem__(self, x):
-        return self.df.iloc[x, :]
-
-    def __len__(self):
-        return self.df.shape[0]
-
-
-def pandas_collate(x):
-    return {i: [j[i] for j in x] for i in x[0].index}
-
 
 def count_masks(texts):
     return [
@@ -32,13 +18,13 @@ def count_masks(texts):
 
 
 # replace each masked span with a sample from T5 mask_model
-def replace_masks(texts, model, tokenizer):
+def replace_masks(texts, model, tokenizer, debug=False):
     n_expected = count_masks(texts)
     stop_id = tokenizer.encode(f"<extra_id_{max(n_expected)}>")[0]
     tokens = tokenizer(texts, return_tensors="pt", padding=True, truncation=True, max_length=512)
     outputs = model.generate(
-        **{i:j.to("cuda") for i,j in tokens.items()},
-        max_length=150,
+        **{i:j.to(model.device) for i,j in tokens.items()},
+        max_length=150 if not debug else 10,
         do_sample=True,
         top_p=1.0,
         num_return_sequences=1,
@@ -215,44 +201,34 @@ class CustomTrainDataLoader:
         self.data.close()
 
 
+class PandasDataset(Dataset):
+    def __init__(self, pd_data):
+        self.df = pd_data
+
+    def __getitem__(self, x):
+        return self.df.iloc[x, :]
+
+    def __len__(self):
+        return self.df.shape[0]
+    
+def pandas_collate(x):
+    return {i: [j[i] for j in x] for i in x[0].index}
+
 def custom_parse_args():
     parser = ArgumentParser()
-    parser.add_argument("--accum-freq", type=int, default=1)
     parser.add_argument("--batch-size", type=int, default=8)
-    parser.add_argument("--col-name", type=str, default=None)
     parser.add_argument("--col-names", type=str, default=None)
     parser.add_argument("--data-path", type=str, default=None)
-    parser.add_argument("--device-id", type=int, default=0)
-    parser.add_argument("--do-not-cache", action="store_false", default=True)
-    parser.add_argument("--do-lora", action="store_true", default=False)
-    parser.add_argument("--do-f16", action="store_true", default=False)
-    parser.add_argument("--epochs", type=int, default=3)
-    parser.add_argument("--is-hf", action="store_true", default=False)
-    parser.add_argument("--is-torchrun", action="store_true", default=False)
-    parser.add_argument("--log-freq", type=int, default=10)
-    parser.add_argument("--lora-r", type=int, default=8)
-    parser.add_argument("--lr", type=float, default=1.0e-4)
+    parser.add_argument("--debug", action="store_true", default=False)
     parser.add_argument("--max-seq-len", type=int, default=128)
     parser.add_argument("--max-samples", type=int, default=None)
-    parser.add_argument("--model-dir", type=str, default=None)
-    parser.add_argument("--hf-sample-top-p", default=False, action="store_true")
-    parser.add_argument(
-        "--modifier-model", type=str, default="t5-3b"
-    )
-    parser.add_argument("--n-samples", type=int, default=-1)
+    parser.add_argument("--modifier-model", type=str, default="t5-3b")
     parser.add_argument("--n-modifications", type=int, default=5)
-    parser.add_argument("--optimizer-name", type=str, default="sgd", choices=["sgd", "adamw"])
+    parser.add_argument("--n-samples", type=int, default=-1)
     parser.add_argument("--output-path", type=str, default="test_output")
     parser.add_argument("--pct-mask", type=float, default=0.3)
-    parser.add_argument("--keep-empty-lines", action="store_true", default=False)
-    parser.add_argument("--resume", type=str, default=None)
-    parser.add_argument("--skip-epoch", type=int, default=0)
-    parser.add_argument("--steps-per-ckpt", type=int, default=10000)
-    parser.add_argument("--strict-load", action="store_true", default=False)
     parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--tokenizer-path", type=str, default=None)
     parser.add_argument("--top-p", type=float, default=0.95)
     parser.add_argument("--top-k", type=int, default=10)
-    parser.add_argument("--wandb-project-name", type=str, default="llama_fine_tune")
-    parser.add_argument("--warmup-ratio", type=float, default=0.01)
     return parser.parse_args()
