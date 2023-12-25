@@ -76,20 +76,17 @@ def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
 
 def save_distributed_and_collect_on_main_rank(
-        data_shard,
-        args,
-        global_rank,
-        global_n_devices,
-        save_after_collect=True
+        data_shard, global_rank, global_n_devices,
+        output_file, save_after_collect=True
     ):
 
     if global_n_devices == 1:
-        data_shard.save_to_disk(args.output_file)
+        data_shard.save_to_disk(output_file)
         return
 
     file_name_template = "{output_file}_n_shards_{global_n_devices}_shard_id_{shard_id}"
     local_file_name = file_name_template.format(
-        output_file=args.output_file,
+        output_file=output_file,
         global_n_devices=global_n_devices,
         shard_id=global_rank
     )
@@ -98,7 +95,7 @@ def save_distributed_and_collect_on_main_rank(
     # molto fatto a mano ma sembra funzionare
     all_files = [
         file_name_template.format(
-            output_file=args.output_file,
+            output_file=output_file,
             global_n_devices=global_n_devices,
             shard_id=i
         )
@@ -117,8 +114,8 @@ def save_distributed_and_collect_on_main_rank(
                 datasets.load_from_disk(file_name) for file_name in all_files])
 
         if save_after_collect:
-            dataset.save_to_disk(args.output_file)
+            dataset.save_to_disk(output_file)
         for i in range(global_n_devices):
-            shutil.rmtree(f"{args.output_file}_n_shards_{global_n_devices}_shard_id_{i}")
+            shutil.rmtree(f"{output_file}_n_shards_{global_n_devices}_shard_id_{i}")
         return dataset
 

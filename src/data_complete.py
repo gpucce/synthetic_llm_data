@@ -188,7 +188,7 @@ def main(args):
     args.output_file += f"_hfvllm_{huggingface_or_vllm}"
 
     final_dataset = save_distributed_and_collect_on_main_rank(
-        data_shard=data, args=args, global_rank=global_rank,
+        data_shard=data, output_file=args.output_file, global_rank=global_rank,
         global_n_devices=world_size, save_after_collect=False
     )
 

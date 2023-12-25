@@ -1,15 +1,15 @@
 #!/bin/bash
 
-#SBATCH --nodes=8
-#SBATCH --ntasks-per-node=2
-#SBATCH --gpus-per-task=2
-#SBATCH --cpus-per-task=16
+#SBATCH --nodes=16
+#SBATCH --ntasks-per-node=1
+#SBATCH --gpus-per-task=4
+#SBATCH --cpus-per-task=32
 #SBATCH --wait-all-nodes=1
 #SBATCH --job-name=generate
 #SBATCH --account=IscrC_GELATINO
 #SBATCH --partition=boost_usr_prod
 #SBATCH --qos=normal
-#SBATCH --time=04:00:00
+#SBATCH --time=12:00:00
 #SBATCH --output slurm_logs/data_complete-%j.out
 #SBATCH --wait-all-nodes=1
 
@@ -19,8 +19,8 @@ source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
 
 srun python -m synthetic_llm_data.src.data_complete \
     --output_file "test_data_complete_output" \
-    --model_name_or_path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-13b-chat-hf" \
+    --model_name_or_path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-70b-chat-hf" \
     --is_test False \
-    --huggingface_or_vllm "vllm" \
     --batch_size 16 \
-    --tensor_parallel_size 2 
+    --huggingface_or_vllm "vllm" \
+    --tensor_parallel_size 4

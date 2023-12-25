@@ -1,15 +1,16 @@
 #!/bin/bash
 
-#SBATCH --nodes=4
+#SBATCH --nodes=2
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=8
 #SBATCH --wait-all-nodes=1
 #SBATCH --job-name=generate
+#SBATCH --qos=normal
 #SBATCH --account=IscrC_GELATINO
 #SBATCH --partition=boost_usr_prod
 #SBATCH --qos=normal
-#SBATCH --time=05:00:00
+#SBATCH --time=00:30:00
 #SBATCH --output slurm_logs/data_complete-%j.out
 #SBATCH --wait-all-nodes=1
 

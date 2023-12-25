@@ -1,11 +1,8 @@
-
+import os
 import json
-import time
 from pathlib import Path
 
-import pandas as pd
 import torch
-from tqdm.auto import tqdm
 import datasets
 
 from transformers import (
@@ -13,6 +10,8 @@ from transformers import (
     AutoModelForSeq2SeqLM,
     # TopKLogitsWarper,
 )
+
+from ...utils import save_distributed_and_collect_on_main_rank
 
 from .utils import (
     tokenize_and_mask,
@@ -29,11 +28,10 @@ def tokenize_mask_extract_and_apply(
 
     n_modifications = args.n_modifications
     batch_size = args.batch_size
-    batched = batch_size > 1
 
     ds = ds.map(
         lambda x: {col_name: process_spaces(x[col_name]).replace("\n", " ")})
-        
+
     ds = ds.map(
         lambda x: {f"modification_{i}":
             tokenize_and_mask(x[col_name], span_length=2, pct=args.pct_mask)
@@ -65,7 +63,7 @@ def main():
 
     data_path = args.data_path
     col_names = args.col_names
-    output_path = args.output_path
+    output_path = Path(args.output_path)
     n_modifications = args.n_modifications
     model_name = args.modifier_model
     debug = args.debug
@@ -73,59 +71,69 @@ def main():
     # ds = datasets.load_dataset("csv", data_files=data_path, delimiter="\t")
     ds = datasets.load_from_disk(data_path)
 
+    ntasks   = int(os.environ.get("SLURM_NTASKS", 1))
+    taskid  = int(os.environ.get("SLURM_PROCID", 0))
+    localid = int(os.environ.get("SLURM_LOCALID", 0))
+
     if args.n_samples > 0:
         # df = df.iloc[: args.n_samples, :]
         # ds = ds.select(range(args.n_samples))
         for split in ds:
             ds[split] = ds[split].select(range(args.n_samples))
 
+    output_path.mkdir(exist_ok=True, parents=True)
+    with open(output_path / "experiment_modification_params.json", "w") as jf:
+        json.dump(vars(args), jf)
 
-    model = AutoModelForSeq2SeqLM.from_pretrained(
-        model_name,
-        torch_dtype=torch.bfloat16,
-        low_cpu_mem_usage=True,
-        device_map="auto"
-    )
+    for split in ds:
+        ds[split] = ds[split].shard(num_shards=int(ntasks), index=int(taskid))
+        _ds = ds[split]
 
-    hftok = AutoTokenizer.from_pretrained(model_name, fast=False, model_max_length=512 if not debug else 10)
+        model = AutoModelForSeq2SeqLM.from_pretrained(
+            model_name, torch_dtype=torch.bfloat16,
+            low_cpu_mem_usage=True, device_map="auto")
 
-    for col_name in col_names.split(":"):
-        # ds["train"][col_name] = ds["train"][col_name].apply(process_spaces).str.replace("\n", " ")
+        hftok = AutoTokenizer.from_pretrained(
+            model_name, fast=False, model_max_length=512 if not debug else 10)
 
-        start = time.time()
+        for col_name in col_names.split(":"):
+            # ds["train"][col_name] = ds["train"][col_name].apply(
+            #     process_spaces).str.replace("\n", " ")
 
-        for split in ds:
-            ds[split] = tokenize_mask_extract_and_apply(
-                ds=ds[split], model=model, tok=hftok, 
+            _ds = tokenize_mask_extract_and_apply(
+                ds=_ds, model=model, tok=hftok,
                 args=args, col_name=col_name)
 
             count = 0
             while count < 10:
-                mask = ds[split].map(
+                print(f"TRY: {count}")
+                mask = _ds.map(
                     lambda x: {"mask":
-                        any([x[f"modification_{i}"] == ""
+                        any([x[f"{col_name}_synthetic_{i}"] == ""
                              for i in range(n_modifications)])})["mask"]
 
                 if not any(mask):
                     break
 
                 replacement = tokenize_mask_extract_and_apply(
-                    ds[split].filter(mask), model=model, tok=hftok,
-                    args=args, col_name=col_name)
+                    _ds.filter(lambda _, idx: mask[idx], with_indices=True),
+                    model=model, tok=hftok, args=args, col_name=col_name)
 
                 idxs = [idx for idx, x in enumerate(mask) if x]
                 for i in range(replacement.num_rows):
                     for j in range(n_modifications):
-                        ds[split][col_name][idxs[i]]["modification_" + str(j)] = \
+                        _ds["modification_" + str(j)][idxs[i]] = \
                             replacement[i]["modification_" + str(j)]
 
                 count += 1
 
-    output_path = Path(output_path)
-    output_path.parent.mkdir(exist_ok=True, parents=True)
-    with open(output_path.parent / "experiment_modification_params.json", "w") as jf:
-        json.dump(vars(args), jf)
-    ds.save_to_disk(output_path / "modifications_dataset")
+        # ds.save_to_disk(output_path / "modifications_dataset")
+        ds[split] = save_distributed_and_collect_on_main_rank(
+            data_shard=_ds, global_rank=taskid, global_n_devices=ntasks,
+            output_file=output_path, save_after_collect=False)
+
+    if taskid == 0:
+        ds.save_to_disk(output_path)
 
 
 if __name__ == "__main__":
