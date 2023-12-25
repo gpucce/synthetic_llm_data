@@ -7,6 +7,7 @@ import datasets
 
 from transformers import (
     AutoTokenizer,
+    AutoModelForCausalLM,
     AutoModelForSeq2SeqLM,
     # TopKLogitsWarper,
 )
@@ -20,6 +21,7 @@ from .utils import (
     apply_extracted_fills,
     process_spaces,
     custom_parse_args,
+    compute_loss
 )
 
 
@@ -65,8 +67,12 @@ def main():
     col_names = args.col_names
     output_path = Path(args.output_path)
     n_modifications = args.n_modifications
-    model_name = args.modifier_model
+    modifier_model_name = args.modifier_model
     debug = args.debug
+    model_name = (
+        args.model_name if not debug 
+        else "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/tiny-random-llama")
+    
 
     # ds = datasets.load_dataset("csv", data_files=data_path, delimiter="\t")
     ds = datasets.load_from_disk(data_path)
@@ -85,47 +91,76 @@ def main():
     with open(output_path / "experiment_modification_params.json", "w") as jf:
         json.dump(vars(args), jf)
 
+    modifier_model = AutoModelForSeq2SeqLM.from_pretrained(
+        modifier_model_name, torch_dtype=torch.bfloat16,
+        low_cpu_mem_usage=True, device_map="auto")
+
+    modifier_tok = AutoTokenizer.from_pretrained(
+        modifier_model_name, fast=False, model_max_length=512 if not debug else 10)
+
     for split in ds:
         ds[split] = ds[split].shard(num_shards=int(ntasks), index=int(taskid))
         _ds = ds[split]
 
-        model = AutoModelForSeq2SeqLM.from_pretrained(
-            model_name, torch_dtype=torch.bfloat16,
-            low_cpu_mem_usage=True, device_map="auto")
-
-        hftok = AutoTokenizer.from_pretrained(
-            model_name, fast=False, model_max_length=512 if not debug else 10)
-
         for col_name in col_names.split(":"):
-            # ds["train"][col_name] = ds["train"][col_name].apply(
-            #     process_spaces).str.replace("\n", " ")
+
+            _ds = _ds.map(
+                lambda x: {
+                    f"original_{col_name}": x[col_name], 
+                    col_name: process_spaces(x[col_name]).replace("\n", " ")})
+
+            _ds = _ds.map(
+                lambda x: {col_name: x[col_name][:args.max_seq_len]
+                           if not debug else x[col_name][:10]})
 
             _ds = tokenize_mask_extract_and_apply(
-                ds=_ds, model=model, tok=hftok,
+                ds=_ds, model=modifier_model, tok=modifier_tok,
                 args=args, col_name=col_name)
 
-            count = 0
-            while count < 10:
-                print(f"TRY: {count}")
-                mask = _ds.map(
-                    lambda x: {"mask":
-                        any([x[f"{col_name}_synthetic_{i}"] == ""
-                             for i in range(n_modifications)])})["mask"]
+            if not debug:
+                count = 0
+                while count < 10:
+                    print(f"TRY: {count}")
+                    mask = _ds.map(
+                        lambda x: {"mask":
+                            any([x[f"{col_name}_synthetic_{i}"] == ""
+                                 for i in range(n_modifications)])})["mask"]
 
-                if not any(mask):
-                    break
+                    if not any(mask):
+                        break
 
-                replacement = tokenize_mask_extract_and_apply(
-                    _ds.filter(lambda _, idx: mask[idx], with_indices=True),
-                    model=model, tok=hftok, args=args, col_name=col_name)
+                    replacement = tokenize_mask_extract_and_apply(
+                        _ds.filter(lambda _, idx: mask[idx], with_indices=True),
+                        model=modifier_model, tok=modifier_tok, args=args, col_name=col_name)
 
-                idxs = [idx for idx, x in enumerate(mask) if x]
-                for i in range(replacement.num_rows):
-                    for j in range(n_modifications):
-                        _ds["modification_" + str(j)][idxs[i]] = \
-                            replacement[i]["modification_" + str(j)]
+                    idxs = [idx for idx, x in enumerate(mask) if x]
+                    for i in range(replacement.num_rows):
+                        for j in range(n_modifications):
+                            _ds["modification_" + str(j)][idxs[i]] = \
+                                replacement[i]["modification_" + str(j)]
 
                 count += 1
+        ds[split] = _ds
+        del _ds
+
+    del modifier_model
+    del modifier_tok
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name, torch_dtype=torch.bfloat16,
+        low_cpu_mem_usage=True, device_map="auto")
+
+    tok = AutoTokenizer.from_pretrained(
+        model_name, fast=False, model_max_length=512 if not debug else 10)
+    tok.pad_token_id = tok.eos_token_id
+
+    for split in ds:
+        _ds = ds[split]
+        for col_name in col_names.split(":"):
+            _ds = _ds.map(
+                lambda x: {f"{col_name}_synthetic_{i}_loss":
+                    compute_loss(x[f"{col_name}_synthetic_{i}"], model, tok)
+                    for i in range(n_modifications)},
+                batched=True, batch_size=args.batch_size)
 
         # ds.save_to_disk(output_path / "modifications_dataset")
         ds[split] = save_distributed_and_collect_on_main_rank(

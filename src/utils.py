@@ -82,7 +82,7 @@ def save_distributed_and_collect_on_main_rank(
 
     if global_n_devices == 1:
         data_shard.save_to_disk(output_file)
-        return
+        return data_shard
 
     file_name_template = "{output_file}_n_shards_{global_n_devices}_shard_id_{shard_id}"
     local_file_name = file_name_template.format(
@@ -118,4 +118,3 @@ def save_distributed_and_collect_on_main_rank(
         for i in range(global_n_devices):
             shutil.rmtree(f"{output_file}_n_shards_{global_n_devices}_shard_id_{i}")
         return dataset
-

@@ -1,4 +1,5 @@
 import re
+
 import numpy as np
 
 
@@ -6,9 +7,8 @@ PATTERN = re.compile(r"<extra_id_\d+>")
 
 
 def count_masks(texts):
-    return [
-        len([x for x in text.split() if x.startswith("<extra_id_")]) for text in texts
-    ]
+    return [len([x for x in text.split() if x.startswith("<extra_id_")])
+            for text in texts]
 
 
 # replace each masked span with a sample from T5 mask_model

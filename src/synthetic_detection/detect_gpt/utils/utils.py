@@ -14,6 +14,7 @@ def custom_parse_args():
     parser.add_argument("--debug", action="store_true", default=False)
     parser.add_argument("--max-seq-len", type=int, default=128)
     parser.add_argument("--max-samples", type=int, default=None)
+    parser.add_argument("--model-name", type=str, default="llama-7b-chat")
     parser.add_argument("--modifier-model", type=str, default="t5-3b")
     parser.add_argument("--n-modifications", type=int, default=5)
     parser.add_argument("--n-samples", type=int, default=-1)

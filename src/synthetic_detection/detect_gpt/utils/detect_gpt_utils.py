@@ -1,6 +1,25 @@
 
-import numpy as np
 
+import numpy as np
+import torch
+from torch.nn import CrossEntropyLoss
+
+
+def compute_loss(texts, model, tokenizer):
+    tokens = tokenizer(
+        texts, return_tensors="pt", padding=True,
+        truncation=True, max_length=512)
+    with torch.no_grad():
+        outputs = model(**{i:j.to(model.device) for i,j in tokens.items()})
+        labels = tokens["input_ids"].clone()
+        pad_mask = labels == tokenizer.pad_token_id
+        labels[pad_mask] = -100
+        loss = per_sequence_crossentropy(outputs.logits.transpose(-1, -2), labels)
+        return loss.detach().cpu().tolist()
+
+def per_sequence_crossentropy(inputs, labels):
+    loss_fn = CrossEntropyLoss(reduction="none")
+    return loss_fn(inputs, labels).mean(-1)
 
 def compute_prob(x, axis=None):
     return np.sum(np.log(x), axis=axis) / len(x)
