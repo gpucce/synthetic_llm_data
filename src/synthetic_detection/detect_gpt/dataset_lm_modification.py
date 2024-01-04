@@ -70,9 +70,9 @@ def main():
     modifier_model_name = args.modifier_model
     debug = args.debug
     model_name = (
-        args.model_name if not debug 
+        args.model_name if not debug
         else "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/tiny-random-llama")
-    
+
 
     # ds = datasets.load_dataset("csv", data_files=data_path, delimiter="\t")
     ds = datasets.load_from_disk(data_path)

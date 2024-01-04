@@ -1,6 +1,7 @@
-import random
-from .utils import split_by_full_stop
 
+import re
+import ast
+import random
 
 NON_CHAT_CONTINUATION = """Title of the paper:
 {paper_title}
@@ -63,6 +64,9 @@ def camoscio_preprocessing_function(inp):
     return {"text": prompt}
 
 
+def split_by_full_stop(text):
+    return re.split(r"(?<![A-Z\d])[.!?] +(?=[A-Z])", text)
+
 def get_semeval_task3_prompt(data_item, model_name):
     """
     A part of human review could be cut off 
@@ -122,3 +126,32 @@ def get_semeval_task3_prompt(data_item, model_name):
     data_item["truncated_human_review"] = partial_review
 
     return data_item
+
+def add_newline(x):
+    return x + "\n" if x[-1] != "\n" else x
+
+def preprocessing_bloomz(prompts):
+    return [add_newline(prompt.replace("325 words", "1000 words"))
+            for prompt in prompts]
+
+def preprocessing_gpt4(prompts):
+    if not isinstance(prompts, list):
+        prompts = ast.literal_eval(prompts)
+    return " ".join(prompts)
+
+
+def get_preprocessing_func(args):
+    if args.preprocessing == "bloomz":
+        return preprocessing_bloomz
+    return lambda x: x
+
+def save_to_right_format(ds, output_file):
+    output_file = str(output_file)
+    if output_file.endswith(".jsonl"):
+        ds.to_json(output_file, orient="records", lines=True)
+    elif output_file.endswith(".json"):
+        ds.to_json(output_file, lines=False)
+    elif output_file.endswith(".csv"):
+        ds.to_csv(output_file)
+    else:
+        raise ValueError(f"Unknown output file format {output_file}")

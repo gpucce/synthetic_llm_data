@@ -1,7 +1,6 @@
 """Utility functions for data handling"""
 
 import os
-import re
 import json
 import time
 import shutil
@@ -9,10 +8,6 @@ from pathlib import Path
 from argparse import ArgumentParser
 from tqdm.auto import tqdm
 import datasets
-
-
-def split_by_full_stop(text):
-    return re.split(r"(?<![A-Z\d])[.!?] +(?=[A-Z])", text)
 
 def read_jsonl(file_path):
     """Read a jsonl file into a list of dicts"""

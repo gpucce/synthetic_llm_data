@@ -2,15 +2,15 @@
 
 import os
 import re
-from argparse import ArgumentParser
 from pathlib import Path
 # from nltk import sent_tokenize
 import transformers as ts
 import datasets
 import torch
 
-from .preprocessing import get_semeval_task3_prompt
-from .utils import (str2bool, save_distributed_and_collect_on_main_rank)
+from .utils import get_semeval_task3_prompt
+from .args import parse_complete_args
+from ..utils import (save_distributed_and_collect_on_main_rank)
 
 datasets.disable_caching()
 
@@ -59,23 +59,12 @@ def generate_synthetic(x, llm, params, is_test, huggingface_or_vllm):
         out["prompt"], llm, params,
         is_test=is_test, huggingface_or_vllm=huggingface_or_vllm)
 
-    out["mixed_review"] = [i+j for i,j in zip(out["truncated_human_review"], out["machine_review"])]
+    out["mixed_review"] = [
+        re.sub(" +", " ", i + " " + j) for i,j in
+        zip(out["truncated_human_review"], out["machine_review"])]
+
     return out
 
-def parse_args():
-    parser = ArgumentParser()
-    parser.add_argument("--is_test", type=str2bool, default=True)
-    parser.add_argument("--output_file", type=str)
-    parser.add_argument("--max_samples", type=int, default=None)
-    parser.add_argument("--model_name_or_path", type=str, required=True)
-    parser.add_argument("--batch_size", type=int, default=8)
-    parser.add_argument("--tensor_parallel_size", type=int, default=1)
-    parser.add_argument(
-        "--huggingface_or_vllm",
-        type=str,
-        default="huggingface",
-        choices=["huggingface", "vllm"])
-    return parser.parse_args()
 
 def main(args):
 
@@ -102,12 +91,6 @@ def main(args):
 
     print("Loading the data...")
 
-    # HF dataset
-    # data = read_PeerRead("/leonardo_scratch/large/userexternal/gpuccett/data/PeerRead/")
-    # data_files = "/leonardo_scratch/large/userexternal/gpuccett/data/PeerRead_full.jsonl"
-    # data = datasets.load_dataset(
-    #     "json", data_files=data_files)
-
     base_path = Path("/leonardo_scratch/large/userexternal/gpuccett/data/")
     base_path /= "semeval2024-private/semeval-taskC/data/"
     data_files = {
@@ -123,9 +106,8 @@ def main(args):
         "test" : data["test"]["uuid"],
     }
 
-    data = datasets.concatenate_datasets([
-        data["train"], data["dev"], data["test"]
-    ])
+    data = datasets.concatenate_datasets(
+        [data["train"], data["dev"], data["test"]])
 
     if is_test and args.max_samples is None:
         args.max_samples = 100
@@ -167,13 +149,13 @@ def main(args):
 
         llm = LLM(
             model=checkpoint,
-            tensor_parallel_size=args.tensor_parallel_size,
-        )
+            tensor_parallel_size=args.tensor_parallel_size)
 
     print('Model successfully loaded.')
 
     model_name = Path(checkpoint).name
-    data = data.map(lambda x: get_semeval_task3_prompt(x, model_name), desc="Generating prompts")
+    data = data.map(
+        lambda x: get_semeval_task3_prompt(x, model_name), desc="Generating prompts")
 
     args.batch_size = 2 if is_test else args.batch_size
     data = data.map(lambda x:
@@ -189,8 +171,7 @@ def main(args):
 
     final_dataset = save_distributed_and_collect_on_main_rank(
         data_shard=data, output_file=args.output_file, global_rank=global_rank,
-        global_n_devices=world_size, save_after_collect=False
-    )
+        global_n_devices=world_size, save_after_collect=False)
 
     if global_rank == 0:
         for split, split_uuid in splits_uuids.items():
@@ -203,4 +184,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(parse_args())
+    main(parse_complete_args())
