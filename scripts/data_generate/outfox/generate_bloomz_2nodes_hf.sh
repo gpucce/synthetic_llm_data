@@ -30,4 +30,5 @@ srun python -m synthetic_llm_data.src.data_generation.data_generate \
     --human_key human_text \
     --tensor_parallel_size 8 \
     --huggingface_or_vllm huggingface \
-    --load_in_8bit True
+    --load_in_8bit True \
+    --preprocessing "bloomz_peerread"

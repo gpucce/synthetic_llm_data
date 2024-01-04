@@ -56,7 +56,7 @@ def generate_synthetic(
     else:
         new_prompt_dict = {}
         # TODO: make extra newline optional
-        new_prompt_dict["prompt"] = preprocessing_fn(prompt_dict["prompt"])
+        new_prompt_dict["prompt"] = preprocessing_fn(prompt_dict)
         new_prompt_dict["human_text"] = prompt_dict[args.human_key]
         new_prompt_dict["machine_text"] = generate(
             new_prompt_dict["prompt"], llm, tokenizer, args, params,
@@ -144,7 +144,7 @@ def main(args):
     if "prompts" in prompt_dicts.column_names:
         prompt_dicts = prompt_dicts.rename_column("prompts", "prompt")
 
-    if args.max_prompts > 0:
+    if args.max_prompts is not None:
         prompt_dicts = prompt_dicts.select(range(args.max_prompts))
 
     if args.system_prompt is None:

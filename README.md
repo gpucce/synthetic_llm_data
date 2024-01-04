@@ -1,3 +1,3 @@
 # Synthetic LLM data
 
-Utilities to create work and study synthetic llm data.
+Utilities to create and study synthetic llm data.

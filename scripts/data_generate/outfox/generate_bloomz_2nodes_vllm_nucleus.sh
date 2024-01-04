@@ -84,4 +84,5 @@ python -m synthetic_llm_data.src.data_generation.data_generate \
     --human_key human_text \
     --tensor_parallel_size 8 \
     --huggingface_or_vllm vllm \
-    --n_tasks 1
+    --n_tasks 1 \
+    --preprocessing "bloomz_peerread"

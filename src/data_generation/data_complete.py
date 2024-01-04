@@ -8,7 +8,7 @@ import transformers as ts
 import datasets
 import torch
 
-from .utils import get_semeval_task3_prompt
+from .utils import get_dataset_preprocessing_func
 from .args import parse_complete_args
 from ..utils import (save_distributed_and_collect_on_main_rank)
 
@@ -19,7 +19,7 @@ def generate(text, llm, params, is_test=False, huggingface_or_vllm="huggingface"
         llm[1] if huggingface_or_vllm == "huggingface"
         else llm.get_tokenizer())
 
-    max_new_tokens = 2048 - max([len(i) for i in tokenizer(text)])
+    max_new_tokens = 2048 - max(len(i) for i in tokenizer(text))
 
     if is_test:
         text = [i[:20] for i in text]
@@ -54,14 +54,14 @@ def generate(text, llm, params, is_test=False, huggingface_or_vllm="huggingface"
         ]
 
 def generate_synthetic(x, llm, params, is_test, huggingface_or_vllm):
-    out = x
+    out = {}
     out["machine_review"] = generate(
-        out["prompt"], llm, params,
+        x["prompt"], llm, params,
         is_test=is_test, huggingface_or_vllm=huggingface_or_vllm)
 
     out["mixed_review"] = [
         re.sub(" +", " ", i + " " + j) for i,j in
-        zip(out["truncated_human_review"], out["machine_review"])]
+        zip(x["truncated_human_review"], out["machine_review"])]
 
     return out
 
@@ -91,41 +91,30 @@ def main(args):
 
     print("Loading the data...")
 
-    base_path = Path("/leonardo_scratch/large/userexternal/gpuccett/data/")
-    base_path /= "semeval2024-private/semeval-taskC/data/"
-    data_files = {
-        "train": str(base_path / "train/train_chatgpt.csv"),
-        "dev":   str(base_path / "dev/dev_chatgpt.csv"),
-        "test":  str(base_path / "test/test_chatgpt.csv")
-    }
+    base_path = Path("." if args.base_path is None else args.base_path)
+    data_files = {i:str(base_path / j) for i,j in zip(args.split_names, args.split_files)}
+
     data = datasets.load_dataset("csv", data_files=data_files)
 
     splits_uuids = {
-        "train" : data["train"]["uuid"],
-        "dev" : data["dev"]["uuid"],
-        "test" : data["test"]["uuid"],
-    }
+        key : data[key]["uuid"] if "uuid" in data[key].features else None
+        for key in data.keys()}
 
+    data_keys = list(data.keys())
     data = datasets.concatenate_datasets(
-        [data["train"], data["dev"], data["test"]])
+        [data[key] for key in data_keys])
 
-    if is_test and args.max_samples is None:
-        args.max_samples = 100
 
-    if args.max_samples is not None:
-        data = data.select(range(args.max_samples))
+    if is_test and args.max_prompts is None:
+        args.max_prompts = 100
+
+    if args.max_prompts is not None:
+        data = data.select(range(args.max_prompts))
 
     data = data.shard(num_shards=world_size, index=global_rank)
-
     print('Loading the model...')
 
-
-    if args.model_name_or_path is None:
-        model_dir = Path('/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/')
-        model_path = "tiny-random-llama" if is_test else "llama-2-7b-hf"
-        args.model_name_or_path = str(model_dir / model_path)
-
-    checkpoint = args.model_name_or_path
+    checkpoint = args.name_or_path
 
     if huggingface_or_vllm == "huggingface":
         model = ts.AutoModelForCausalLM.from_pretrained(
@@ -153,34 +142,32 @@ def main(args):
 
     print('Model successfully loaded.')
 
+    preprocessing_fn = get_dataset_preprocessing_func(args)
+
     model_name = Path(checkpoint).name
     data = data.map(
-        lambda x: get_semeval_task3_prompt(x, model_name), desc="Generating prompts")
+        lambda x: preprocessing_fn(x, model_name),
+        batched=True, batch_size=100,
+        desc="Generating prompts")
 
-    args.batch_size = 2 if is_test else args.batch_size
+    args.max_batch_size = 2 if is_test else args.max_batch_size
     data = data.map(lambda x:
         generate_synthetic(x, llm, params, is_test=is_test,
                            huggingface_or_vllm=huggingface_or_vllm),
-        desc="Generating machine text", batched=True, batch_size=args.batch_size)
-
-    if "output_file" not in args:
-        args.output_file = "/leonardo_scratch/large/userexternal/" + \
-        "gpuccett/data/PeerRead_synthetic_continuation"
-    args.output_file += f"_model_{model_name}"
-    args.output_file += f"_hfvllm_{huggingface_or_vllm}"
+        desc="Generating machine text", batched=True, batch_size=args.max_batch_size)
 
     final_dataset = save_distributed_and_collect_on_main_rank(
-        data_shard=data, output_file=args.output_file, global_rank=global_rank,
+        data_shard=data, output_file=args.output_path, global_rank=global_rank,
         global_n_devices=world_size, save_after_collect=False)
 
     if global_rank == 0:
         for split, split_uuid in splits_uuids.items():
-            final_dataset.filter(lambda x: x["uuid"] in split_uuid).to_pandas().to_csv(
-                str(base_path / f"{split}/{split}_{model_name}.csv"), index=False
-            )
-            # final_dataset.filter(lambda x: x["uuid"] in split_uuid).to_json(
-            #     str(base_path / f"{split}/{split}_{model_name}.jsonl")
-            # )
+            if split_uuid is None:
+                final_dataset.to_csv(str(args.output_path), index=False)
+                break
+
+            final_dataset.filter(lambda x: x["uuid"] in split_uuid).to_csv(
+                str(Path(args.output_path) / f"{split}/{split}_{model_name}.csv"), index=False)
 
 
 if __name__ == "__main__":

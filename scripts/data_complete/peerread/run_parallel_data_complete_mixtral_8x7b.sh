@@ -21,6 +21,6 @@ srun python -m synthetic_llm_data.src.data_complete \
     --output_file "test_data_complete_output" \
     --model_name_or_path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-70b-chat-hf" \
     --is_test False \
-    --batch_size 16 \
+    --max_batch_size 16 \
     --huggingface_or_vllm "vllm" \
     --tensor_parallel_size 4

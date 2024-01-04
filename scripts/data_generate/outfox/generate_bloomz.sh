@@ -35,7 +35,8 @@ srun python -m synthetic_llm_data.src.data_generation.data_generate \
     --prompts "file::/leonardo_scratch/large/userexternal/gpuccett/data/CHANGE-it/train.jsonl" \
     --output_path /leonardo_scratch/large/userexternal/gpuccett/data/m4_data/camoscio2_70b_v2_m4_beam_search_watch_eos \
     --human_key full_text \
-    --tensor_parallel_size 4
+    --tensor_parallel_size 4 \
+    --preprocessing "bloomz_peerread"
 
 
     # --max_seq_len 100 \

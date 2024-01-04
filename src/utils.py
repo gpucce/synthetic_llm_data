@@ -76,7 +76,8 @@ def save_distributed_and_collect_on_main_rank(
     ):
 
     if global_n_devices == 1:
-        data_shard.save_to_disk(output_file)
+        if save_after_collect:
+            data_shard.save_to_disk(output_file)
         return data_shard
 
     file_name_template = "{output_file}_n_shards_{global_n_devices}_shard_id_{shard_id}"

@@ -18,9 +18,12 @@ export CUDA_VISIBLE_DEVICES="0,1,2,3"
 source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
 
 srun python -m synthetic_llm_data.src.data_complete \
-    --output_file "test_data_complete_output" \
-    --model_name_or_path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-13b-chat-hf" \
+    --output_path "test_data_complete_output" \
+    --name_or_path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-13b-chat-hf" \
     --is_test False \
     --huggingface_or_vllm "vllm" \
-    --batch_size 16 \
-    --tensor_parallel_size 2 
+    --max_batch_size 16 \
+    --tensor_parallel_size 2 \
+    --base_path "/leonardo_scratch/large/userexternal/gpuccett/data/semeval2024-private/semeval-taskC/data/" \
+    --split_names "train" "dev" "test" \
+    --split_files "train/train_chatgpt.csv" "dev/dev_chatgpt.csv" "test/test_chatgpt.csv" \
