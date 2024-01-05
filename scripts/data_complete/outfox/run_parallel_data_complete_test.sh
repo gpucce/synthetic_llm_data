@@ -21,17 +21,15 @@ export CUDA_VISIBLE_DEVICES="0,1,2,3"
 source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
 
 srun python -m synthetic_llm_data.src.data_generation.data_complete \
-    --name_or_path /leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-7b-chat-hf/ \
+    --name_or_path /leonardo_scratch/large/userexternal/gpuccett/models/hf_gpt/gpt2-hf \
     --seed 1 \
-    --max_new_tokens 384 \
-    --max_batch_size 16 \
+    --is_test "true" \
     --use_beam_search True \
     --huggingface_or_vllm "vllm" \
-    --output_path /leonardo_scratch/large/userexternal/gpuccett/data/semeval2024-private/data/outfox_llama7b_chat.csv \
+    --output_path ./data_complete_test \
     --tensor_parallel_size 1 \
     --preprocessing outfox \
     --base_path "/leonardo_scratch/large/userexternal/gpuccett/data/semeval2024-private/data/" \
     --split_names train \
     --split_files outfox_gpt4.csv \
-    --human_key "human_text" \
-    --columns_to_remove "machine_review" "prompts" "partial_essay"
+    --human_key "human_text"

@@ -1,14 +1,17 @@
 
 import os
 import json
-import random
 from pathlib import Path
 
 import torch
 import datasets
 
 from .args import parse_generate_args
-from .utils import get_preprocessing_func, save_to_right_format
+from .utils import (
+    get_preprocessing_func,
+    save_to_right_format,
+    get_min_length_logits_processor
+)
 from ..utils import save_distributed_and_collect_on_main_rank
 
 datasets.disable_caching()
@@ -81,14 +84,6 @@ def generate_synthetic(
             json_out.write(new_line)
 
     return new_prompt_dict
-
-def get_min_length_logits_processor(min_length, eos_token_id):
-    def min_length_logits_processor(seq_ids, logits_row):
-        true_min_length = random.randint(max(min_length - 200, 0), min_length)
-        if len(seq_ids) < true_min_length:
-            logits_row[eos_token_id] = float(-1e4)
-        return logits_row
-    return min_length_logits_processor
 
 
 def get_model_tokenizer_and_params(args):
@@ -174,6 +169,10 @@ def main(args):
         with_indices=True, desc="Generating machine text",
         batched=True, batch_size=args.max_batch_size)
 
+
+    if args.columns_to_remove is not None:
+        prompt_dicts = prompt_dicts.remove_columns(args.columns_to_remove)
+    
     prompt_dicts = save_distributed_and_collect_on_main_rank(
         data_shard=prompt_dicts, global_rank=procid, global_n_devices=ntasks,
         save_after_collect=False, output_file=str(future_df_path).replace(".jsonl", "")

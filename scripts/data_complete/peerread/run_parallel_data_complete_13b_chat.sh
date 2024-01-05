@@ -27,3 +27,4 @@ srun python -m synthetic_llm_data.src.data_complete \
     --base_path "/leonardo_scratch/large/userexternal/gpuccett/data/semeval2024-private/semeval-taskC/data/" \
     --split_names "train" "dev" "test" \
     --split_files "train/train_chatgpt.csv" "dev/dev_chatgpt.csv" "test/test_chatgpt.csv" \
+    --human_key "full_human_review"

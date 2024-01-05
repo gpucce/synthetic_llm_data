@@ -1,8 +1,6 @@
 import re
 import random
 
-from .prompts import PROMPT_REGISTRY
-
 def camoscio_preprocessing_function(inp):
     """Format the text string."""
 
@@ -34,82 +32,8 @@ def camoscio_preprocessing_function(inp):
 def split_by_full_stop(text):
     return re.split(r"(?<![A-Z\d])[.!?] +(?=[A-Z])", text)
 
-def get_semeval_task3_prompt(data_item, model_name):
-    """
-    A part of human review could be cut off 
-    1. randomly at a word present in 1/10th to 5/10th of the review.
-    2. randomly at a closest sentence boundary in the 1/10th to 5/10th of the review.
-    """
-
-    human_review = (data_item["full_human_review"]
-        if "full_human_review" in data_item
-        else data_item["human_review"])
-
-    cut_at_sentence = random.randint(0, 2) > 1
-
-    sentences = split_by_full_stop(human_review)
-    words = human_review.split(" ")
-
-    num_of_words = len(words)
-    sentence_boundaries = [0] + [len(sentence.split(" ")) for sentence in sentences]
-    sentence_boundaries = [
-        sum(sentence_boundaries[:i]) for i in range(1, len(sentence_boundaries))]
-
-    # selecting human review from 1/10th to the 5/10th of the review
-    selected_human_review_word = random.randint(int(num_of_words / 10), int(num_of_words / 2))
-    selected_human_review = words[:selected_human_review_word]
-
-    if cut_at_sentence:
-        # get the closest sentence boundary
-        distance_to_sentence_boundary = [
-            abs(len(selected_human_review) - boundary)
-            for boundary in sentence_boundaries
-        ]
-        selected_boundary = sentence_boundaries[
-            distance_to_sentence_boundary.index(min(distance_to_sentence_boundary))
-        ]
-    else:
-        selected_boundary = selected_human_review_word
-
-    num_of_words_to_generate = num_of_words - selected_boundary
-    partial_review = words[:selected_boundary]
-    partial_review = " ".join(partial_review)
-
-    updated_prompt = PROMPT_REGISTRY["semeval_task_3"]["peerread"][model_name].format(
-        paper_title=data_item["title"],
-        paper_abstract=data_item["abstract"],
-        partial_review=partial_review,
-        num_of_words=num_of_words_to_generate,
-    )
-
-    data_item["full_human_review"] = human_review
-    data_item["cut_at_sentence"] = cut_at_sentence
-    data_item["human_end_boundary"] = selected_boundary
-    data_item["prompt"] = updated_prompt
-    data_item["truncated_human_review"] = partial_review
-
-    return data_item
-
 def add_newline(x):
     return x + "\n" if x[-1] != "\n" else x
-
-def preprocessing_gpt4_outfox(prompt_dict, model_name):
-    out = {"prompt":[], "truncated_human_review":[], "model_name":[]}
-    out["full_human_review"] = prompt_dict["human_text"]
-    for topic, partial_essay in zip(prompt_dict["topic"], prompt_dict["partial_essay"]):
-        out["truncated_human_review"].append(partial_essay if partial_essay is not None else "")
-        out["prompt"].append(PROMPT_REGISTRY["semeval_task_3"]["outfox"]["gpt4"].format(
-            essay_topic=topic, partial_essay=partial_essay))
-        out["model_name"].append(model_name)
-
-    return out
-
-def get_dataset_preprocessing_func(args):
-    if args.preprocessing == "peerread":
-        return get_semeval_task3_prompt
-    elif args.preprocessing == "gpt4_outfox":
-        return preprocessing_gpt4_outfox
-    return lambda x: x
 
 
 def preprocessing_bloomz_peerread(prompt_dict):
@@ -136,3 +60,11 @@ def save_to_right_format(ds, output_file):
         ds.to_csv(output_file)
     else:
         raise ValueError(f"Unknown output file format {output_file}")
+
+def get_min_length_logits_processor(min_length, eos_token_id):
+    def min_length_logits_processor(seq_ids, logits_row):
+        true_min_length = random.randint(max(min_length - 200, 0), min_length)
+        if len(seq_ids) < true_min_length:
+            logits_row[eos_token_id] = float(-1e4)
+        return logits_row
+    return min_length_logits_processor

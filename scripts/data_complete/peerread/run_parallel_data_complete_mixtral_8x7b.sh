@@ -23,4 +23,8 @@ srun python -m synthetic_llm_data.src.data_complete \
     --is_test False \
     --max_batch_size 16 \
     --huggingface_or_vllm "vllm" \
-    --tensor_parallel_size 4
+    --tensor_parallel_size 4 \
+    --base_path "/leonardo_scratch/large/userexternal/gpuccett/data/semeval2024-private/semeval-taskC/data/" \
+    --split_names "train" "dev" "test" \
+    --split_files "train/train_chatgpt.csv" "dev/dev_chatgpt.csv" "test/test_chatgpt.csv" \
+    --human_key "full_human_review"

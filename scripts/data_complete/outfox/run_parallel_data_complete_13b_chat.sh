@@ -1,9 +1,9 @@
 #!/bin/bash
 
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
-#SBATCH --cpus-per-task=8
-#SBATCH --gpus-per-task=1
+#SBATCH --ntasks-per-node=2
+#SBATCH --cpus-per-task=16
+#SBATCH --gpus-per-task=2
 #SBATCH --wait-all-nodes=1
 #SBATCH --job-name=generate
 #SBATCH --account=IscrC_GELATINO
@@ -21,14 +21,14 @@ export CUDA_VISIBLE_DEVICES="0,1,2,3"
 source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
 
 srun python -m synthetic_llm_data.src.data_generation.data_complete \
-    --name_or_path /leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-7b-chat-hf/ \
+    --name_or_path /leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-13b-chat-hf/ \
     --seed 1 \
     --max_new_tokens 384 \
     --max_batch_size 16 \
     --use_beam_search True \
     --huggingface_or_vllm "vllm" \
-    --output_path /leonardo_scratch/large/userexternal/gpuccett/data/semeval2024-private/data/outfox_llama7b_chat.csv \
-    --tensor_parallel_size 1 \
+    --output_path /leonardo_scratch/large/userexternal/gpuccett/data/semeval2024-private/data/outfox_llama13b_chat.csv \
+    --tensor_parallel_size 2 \
     --preprocessing outfox \
     --base_path "/leonardo_scratch/large/userexternal/gpuccett/data/semeval2024-private/data/" \
     --split_names train \
