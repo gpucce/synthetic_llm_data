@@ -18,7 +18,7 @@ def replace_masks(texts, model, tokenizer, debug=False):
     tokens = tokenizer(texts, return_tensors="pt", padding=True, truncation=True, max_length=512)
     outputs = model.generate(
         **{i:j.to(model.device) for i,j in tokens.items()},
-        max_length=150 if not debug else 10,
+        max_length=150 if not debug else 50,
         do_sample=True,
         top_p=1.0,
         num_return_sequences=1,

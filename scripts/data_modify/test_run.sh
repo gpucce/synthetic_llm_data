@@ -1,0 +1,11 @@
+python -u -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_modification \
+    --output-path "small_test" \
+    --modifier-model "/leonardo_scratch/large/userexternal/gpuccett/models/hf_t5/t5-small" \
+    --model-name "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/tiny-random-llama" \
+    --data-path "/leonardo_scratch/large/userexternal/gpuccett/data/semeval2024-private/data/other_languages/italian_news_camoscio.jsonl" \
+    --col-names "document" \
+    --batch-size 4 \
+    --n-modifications 2 \
+    --max-seq-len 50 \
+    --n-samples 20 \
+    --debug
