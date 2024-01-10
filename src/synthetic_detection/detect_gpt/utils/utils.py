@@ -1,10 +1,5 @@
 
-import json
-from pathlib import Path
 from argparse import ArgumentParser
-
-import torch
-from torch.utils.data import Dataset
 
 def custom_parse_args():
     parser = ArgumentParser()
@@ -20,6 +15,7 @@ def custom_parse_args():
     parser.add_argument("--n-samples", type=int, default=None)
     parser.add_argument("--output-path", type=str, default="test_output")
     parser.add_argument("--pct-mask", type=float, default=0.3)
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--tokenizer-path", type=str, default=None)
     parser.add_argument("--top-p", type=float, default=0.95)

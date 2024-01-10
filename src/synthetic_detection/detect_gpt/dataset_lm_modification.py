@@ -81,9 +81,11 @@ def main():
         {"train": datasets.Dataset.from_dict(
             {"document": ds["machine_text"] + ds["human_text"],
             "label": [1] * len(ds["machine_text"]) + [0] * len(ds["human_text"])}
-            ).shuffle()
+            ).shuffle(seed=args.seed)
         })
-
+    
+    assert len([i for i in ds["train"]["label"] if i == 1]) == \
+        len([i for i in ds["train"]["label"] if i == 0])
 
     ntasks   = int(os.environ.get("SLURM_NTASKS", 1))
     print(f"################### NTASKS {ntasks}")
@@ -181,7 +183,7 @@ def main():
     print(f"##################### NTASKS {ntasks} TASKID {taskid} MODIFICATION DONE")
 
     model = AutoModelForCausalLM.from_pretrained(
-        model_name, torch_dtype=torch.bfloat16,
+        model_name, # torch_dtype=torch.bfloat16,
         low_cpu_mem_usage=True, device_map="auto")
 
     tok = AutoTokenizer.from_pretrained(
@@ -198,6 +200,11 @@ def main():
                         for i in range(n_modifications)},
                     **{f"{col_name}_loss": compute_loss(x[col_name], model, tok)}
                 }, batched=True, batch_size=args.batch_size)
+            if debug:
+                print("DOC EXAMPLES", _ds[f"{col_name}"][:3])
+                print("ORIGINAL LOSS", _ds[f"{col_name}_loss"][:3])
+                print("MODIFIED DOC EXAMPLES", _ds[f"{col_name}_synthetic_0"][:3])
+                print("MODIFIED LOSS", _ds[f"{col_name}_synthetic_0_loss"][:3])
 
         ds[split] = save_distributed_and_collect_on_main_rank(
             data_shard=_ds, global_rank=taskid, global_n_devices=ntasks,

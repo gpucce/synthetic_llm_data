@@ -14,7 +14,9 @@ def compute_loss(texts, model, tokenizer):
         labels = tokens["input_ids"].clone()
         pad_mask = labels == tokenizer.pad_token_id
         labels[pad_mask] = -100
-        t_logits = outputs.logits.transpose(-1, -2)
+        logits = outputs.logits[..., :-1, :]
+        t_logits = logits.transpose(-1, -2)
+        labels = labels[..., 1:]
         loss = per_sequence_crossentropy(t_logits, labels.to(t_logits.device))
         return loss.detach().cpu().tolist()
 
