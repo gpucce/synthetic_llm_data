@@ -27,6 +27,23 @@ def replace_masks(texts, model, tokenizer):
     return tokenizer.batch_decode(outputs, skip_special_tokens=False)
 
 
+def _replace_mask_string(tokens, mask_string):
+    # replace each occurrence of mask_string with <extra_id_NUM>, where NUM increments
+    num_filled = 0
+    for idx, token in enumerate(tokens):
+        if token == mask_string:
+            tokens[idx] = f"<extra_id_{num_filled}>"
+            num_filled += 1
+    return tokens, num_filled
+
+def tokenize_and_mask_with_indices(text, start, stop):
+    mask_string = "<<<mask>>>"
+    text = text[:start] + mask_string + text[stop + 1:]
+    tokens = text.split(" ")
+    tokens, _ = _replace_mask_string(tokens, mask_string)
+    text = " ".join(tokens)
+    return text
+
 def tokenize_and_mask(text, span_length=2, pct=0.3, buffer_size=1, ceil_pct=False):
     tokens = text.split(" ")
     mask_string = "<<<mask>>>"
@@ -50,15 +67,11 @@ def tokenize_and_mask(text, span_length=2, pct=0.3, buffer_size=1, ceil_pct=Fals
         if count >= 1000:
             break
 
-    # replace each occurrence of mask_string with <extra_id_NUM>, where NUM increments
-    num_filled = 0
-    for idx, token in enumerate(tokens):
-        if token == mask_string:
-            tokens[idx] = f"<extra_id_{num_filled}>"
-            num_filled += 1
+    tokens, num_filled = _replace_mask_string(tokens, mask_string)
     assert num_filled == n_masks, f"num_filled {num_filled} != n_masks {n_masks}"
     text = " ".join(tokens)
     return text
+
 
 
 def extract_fills(texts):
