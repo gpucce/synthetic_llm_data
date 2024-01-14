@@ -12,13 +12,13 @@ def count_masks(texts):
 
 
 # replace each masked span with a sample from T5 mask_model
-def replace_masks(texts, model, tokenizer, debug=False):
+def replace_masks(texts, model, tokenizer):
     n_expected = count_masks(texts)
     stop_id = tokenizer.encode(f"<extra_id_{max(n_expected)}>")[0]
     tokens = tokenizer(texts, return_tensors="pt", padding=True, truncation=True, max_length=512)
     outputs = model.generate(
         **{i:j.to(model.device) for i,j in tokens.items()},
-        max_length=150 if not debug else 50,
+        max_length=150,
         do_sample=True,
         top_p=1.0,
         num_return_sequences=1,
@@ -89,7 +89,7 @@ def apply_extracted_fills(masked_texts, extracted_fills):
 
     # join tokens back into text
     texts = [" ".join(x) for x in tokens]
-    return texts
+    return [process_spaces(i) for i in texts]
 
 
 def process_spaces(text):

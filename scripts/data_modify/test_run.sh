@@ -1,11 +1,18 @@
 python -u -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_modification \
     --output-path "small_test" \
-    --modifier-model "/leonardo_scratch/large/userexternal/gpuccett/models/hf_t5/t5-small" \
-    --model-name "/leonardo_scratch/large/userexternal/gpuccett/models/hf_gpt/gpt2-small-italian" \
-    --data-path "/leonardo_scratch/large/userexternal/gpuccett/data/semeval2024-private/data/other_languages/italian_news_camoscio.jsonl" \
+    --modifier-model "/leonardo_scratch/large/userexternal/gpuccett/models/hf_t5/t5-3b" \
+    --model-name "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-13b-chat-hf" \
+    --data-path "/leonardo_scratch/large/userexternal/gpuccett/data/xsum" \
+    --name-or-path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-13b-chat-hf" \
     --col-names "document" \
-    --batch-size 4 \
+    --human-key "document" \
+    --max-batch-size 10 \
+    --do-generation \
     --n-modifications 2 \
-    --max-seq-len 50 \
-    --n-samples 20 \
-    --debug
+    --dataset-type disk \
+    --min-new-tokens 200 \
+    --max-new-tokens 200 \
+    --max-seq-len 150 \
+    --preprocessing xsum \
+    --n-samples 10 \
+    --seed 10

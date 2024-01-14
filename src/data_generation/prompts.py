@@ -38,6 +38,14 @@ Problem statement (essay topic):
 Partial Essay:
 {partial_essay}"""
 
+XSUM_CHAT_CONTINUATION = """Act as an experienced journalist.
+
+Continue the following Partial News Article complete it writing at least 300 words with a clear opinion. The written essay should look like human-written (please start writing the essay without any additional text).
+
+Partial News Article:
+{document}"""
+
+
 PROMPT_REGISTRY = {
     "semeval_task_3" : { 
         "peerread" : {
@@ -49,6 +57,11 @@ PROMPT_REGISTRY = {
         "outfox" : {
             model_name:OUTFOX_CHAT_CONTINUATION for model_name
                 in ["llama-2-7b-chat-hf", "llama-2-13b-chat-hf", "llama-2-70b-chat-hf", "gpt2-hf"]
+        },
+        "xsum": {
+            model_name:XSUM_CHAT_CONTINUATION for model_name
+                in ["llama-2-7b-chat-hf", "llama-2-13b-chat-hf", "llama-2-70b-chat-hf",
+                    "gpt2-hf", "gpt2-small-hf", "gpt2-medium"]
         }
     }
 }
@@ -59,16 +72,20 @@ class PromptPreprocessor():
         self.model_name = Path(args.name_or_path).name
         self.human_key = args.human_key
         self.prompt = PROMPT_REGISTRY["semeval_task_3"][self.preprocessing][self.model_name]
+        self.split_at_random_length = vars(args).get("split_at_random_length", True)
 
     def interpolate_peerread_prompt(
         self, data_item, partial_prompt, num_of_words_to_generate, **kwargs):
-        
+
         return self.prompt.format(
             paper_title=data_item["title"],
             paper_abstract=data_item["abstract"],
             partial_review=partial_prompt,
             num_of_words=num_of_words_to_generate,
         )
+
+    def interpolate_xsum_prompt(self, data_item, partial_prompt, **kwargs):
+        return self.prompt.format(document=partial_prompt)
 
     def interpolate_outfox_prompt(self, data_item, partial_prompt, **kwargs):
         return self.prompt.format(
@@ -83,25 +100,12 @@ class PromptPreprocessor():
         elif self.preprocessing == "outfox":
             return self.interpolate_outfox_prompt(
                 data_item, partial_prompt, **kwargs)
+        elif self.preprocessing == "xsum":
+            return self.prompt.format(data_item, document=partial_prompt, **kwargs)
 
-        raise ValueError(f"Unknown formatting {self.formatting}")
+        raise ValueError(f"Unknown formatting {self.preprocessing}")
 
-
-    def __call__(self, data_item, **kwargs):
-        """
-        A part of human review could be cut off 
-        1. randomly at a word present in 1/10th to 5/10th of the review.
-        2. randomly at a closest sentence boundary in the 1/10th to 5/10th of the review.
-        """
-
-        human_review = data_item[self.human_key]
-
-        cut_at_sentence = random.randint(0, 2) > 1
-
-        sentences = split_by_full_stop(human_review)
-        words = human_review.split(" ")
-
-        num_of_words = len(words)
+    def get_boundary(self, num_of_words, cut_at_sentence, words, sentences):
         sentence_boundaries = [0] + [len(sentence.split(" ")) for sentence in sentences]
         sentence_boundaries = [
             sum(sentence_boundaries[:i]) for i in range(1, len(sentence_boundaries))]
@@ -122,7 +126,30 @@ class PromptPreprocessor():
         else:
             selected_boundary = selected_human_review_word
 
-        kwargs = {"num_of_words_to_generate": num_of_words - selected_boundary,}
+        return selected_boundary
+
+    def __call__(self, data_item, **kwargs):
+        """
+        A part of human review could be cut off 
+        1. randomly at a word present in 1/10th to 5/10th of the review.
+        2. randomly at a closest sentence boundary in the 1/10th to 5/10th of the review.
+        """
+
+        human_review = data_item[self.human_key]
+
+        cut_at_sentence = random.randint(0, 2) > 1
+
+        sentences = split_by_full_stop(human_review)
+        words = human_review.split(" ")
+
+        num_of_words = len(words)
+
+        selected_boundary = 30
+        if self.split_at_random_length:
+            selected_boundary = self.get_boundary(
+                num_of_words, cut_at_sentence, words, sentences)
+
+        kwargs = {"num_of_words_to_generate": num_of_words - selected_boundary}
 
         partial_prompt = " ".join(words[:selected_boundary])
         updated_prompt = self.interpolate_prompt(data_item, partial_prompt, **kwargs)

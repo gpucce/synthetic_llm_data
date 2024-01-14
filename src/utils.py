@@ -72,7 +72,8 @@ def str2bool(v):
 
 def save_distributed_and_collect_on_main_rank(
         data_shard, global_rank, global_n_devices,
-        output_file, save_after_collect=True, split=None
+        output_file, save_after_collect=True, split=None,
+        clean_temp_files=True, output_on_all_nodes=False
     ):
 
     if global_n_devices == 1:
@@ -107,7 +108,9 @@ def save_distributed_and_collect_on_main_rank(
         all_files = [file_name + "_{split}" for file_name in all_files]
         all_files = [file_name.format(split=split) for file_name in all_files]
 
-    if global_rank == 0:
+    assert not (output_on_all_nodes and clean_temp_files)
+
+    if output_on_all_nodes or global_rank == 0:
 
         all_data_there = False
         while not all_data_there:
@@ -120,6 +123,7 @@ def save_distributed_and_collect_on_main_rank(
 
         if save_after_collect:
             dataset.save_to_disk(output_file)
-        for file_name in all_files:
-            shutil.rmtree(file_name)
+        if clean_temp_files:
+            for file_name in all_files:
+                shutil.rmtree(file_name)
         return dataset
