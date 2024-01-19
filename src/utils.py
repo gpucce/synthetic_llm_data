@@ -70,16 +70,7 @@ def str2bool(v):
         return v
     return v.lower() in ("yes", "true", "t", "1")
 
-def save_distributed_and_collect_on_main_rank(
-        data_shard, global_rank, global_n_devices,
-        output_file, save_after_collect=True, split=None,
-        clean_temp_files=True, output_on_all_nodes=False
-    ):
-
-    if global_n_devices == 1:
-        if save_after_collect:
-            data_shard.save_to_disk(output_file)
-        return data_shard
+def get_file_names_for_distributed_saving(output_file, global_n_devices, global_rank, split=None):
 
     file_name_template = "{output_file}_n_shards_{global_n_devices}_shard_id_{shard_id}"
 
@@ -93,7 +84,6 @@ def save_distributed_and_collect_on_main_rank(
         local_file_name += "_{split}"
         local_file_name = local_file_name.format(split=split)
 
-    data_shard.save_to_disk(local_file_name)
     # molto fatto a mano ma sembra funzionare
     all_files = [
         file_name_template.format(
@@ -107,6 +97,30 @@ def save_distributed_and_collect_on_main_rank(
     if split is not None:
         all_files = [file_name + "_{split}" for file_name in all_files]
         all_files = [file_name.format(split=split) for file_name in all_files]
+
+    return local_file_name, all_files
+
+def save_distributed_and_collect_on_main_rank(
+        data_shard, global_rank, global_n_devices,
+        output_file, output_sharded=False, save_after_collect=True,
+        split=None, clean_temp_files=True, output_on_all_nodes=False
+    ):
+
+    if global_n_devices == 1:
+        if save_after_collect:
+            data_shard.save_to_disk(output_file)
+        return data_shard
+
+    local_file_name, all_files = get_file_names_for_distributed_saving(
+        output_file, global_n_devices, global_rank, split=split)
+
+    if output_sharded:
+        msg = "output_sharded=True requires {arg}=False because it would not be used"
+        assert not save_after_collect, msg.format(arg="save_after_collect")
+        assert not output_on_all_nodes, msg.format(arg="output_on_all_nodes")
+        return data_shard
+
+    data_shard.save_to_disk(local_file_name)
 
     assert not (output_on_all_nodes and clean_temp_files)
 
@@ -123,7 +137,9 @@ def save_distributed_and_collect_on_main_rank(
 
         if save_after_collect:
             dataset.save_to_disk(output_file)
+
         if clean_temp_files:
             for file_name in all_files:
                 shutil.rmtree(file_name)
+
         return dataset
