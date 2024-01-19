@@ -1,9 +1,9 @@
 #!/bin/bash
 
 #SBATCH --nodes=2
-#SBATCH --ntasks-per-node=1
-#SBATCH --gpus-per-task=4
-#SBATCH --cpus-per-task=32
+#SBATCH --ntasks-per-node=4
+#SBATCH --gpus-per-task=1
+#SBATCH --cpus-per-task=8
 #SBATCH --wait-all-nodes=1
 #SBATCH --job-name=generate
 #SBATCH --qos=normal
@@ -19,16 +19,17 @@ export CUDA_VISIBLE_DEVICES="0,1,2,3"
 source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
 
 srun python -u -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_modification \
-    --output-path "detectGPT_experiments/xsum/llama13bchatgen_t5-3bmodif_llama13bdetect" \
+    --output-path "detectGPT_experiments/xsum/llama7bgen_t5-3bmodif_llama7bdetect" \
     --modifier-model "/leonardo_scratch/large/userexternal/gpuccett/models/hf_t5/t5-3b" \
-    --model-name "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-13b-chat-hf" \
+    --model-name "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-7b-hf" \
     --data-path "/leonardo_scratch/large/userexternal/gpuccett/data/xsum" \
-    --name-or-path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-13b-chat-hf" \
+    --name-or-path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-7b-hf" \
     --col-name "document" \
     --human-key "document" \
     --max-batch-size 32 \
     --do-generation \
     --temperature 1.0 \
+    --do-modification \
     --n-modifications 50 \
     --dataset-type disk \
     --min-new-tokens 150 \
@@ -36,5 +37,5 @@ srun python -u -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_
     --max-seq-len 150 \
     --preprocessing xsum \
     --padding-side "left" \
-    --n-samples 300 \
+    --n-samples 1000 \
     --seed 10
