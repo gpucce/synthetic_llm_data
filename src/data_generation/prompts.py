@@ -45,23 +45,49 @@ Continue the following Partial News Article complete it writing at least 300 wor
 Partial News Article:
 {document}"""
 
+XSUM_NON_CHAT_CONTINUATION = """{document}"""
+
+ABSTRACTION_CHAT_CONTINUATION = """Answer as an experienced linguist.
+
+Given two sentences, SENT1 and SENT2, both containing a word WORD, I would like you to tell me if the word WORD is used in a more abstract way in the first sentence, SENT1, or in the second sentence, SENT2.
+Please answer by saying "SENT1" or "SENT2" only.
+
+SENT1:{text1}
+
+SENT2:{text2}
+
+WORD: {target_token}
+
+ANSWER:"""
 
 PROMPT_REGISTRY = {
-    "semeval_task_3" : { 
+    "semeval_task_3" : {
         "peerread" : {
             **{model_name:PEERREAD_NON_CHAT_CONTINUATION for model_name
                in ["llama-2-7b-hf", "llama-2-13b-hf", "llama-2-70b-hf", "gpt2-hf"]},
             **{model_name:PEERREAD_CHAT_CONTINUATION for model_name
-               in ["llama-2-7b-chat-hf", "llama-2-13b-chat-hf", "llama-2-70b-chat-hf", "gpt2-hf"]}
+               in ["llama-2-7b-chat-hf", "llama-2-13b-chat-hf", "llama-2-70b-chat-hf",
+                   "gpt2-hf", "tiny-random-llama"]}
         },
         "outfox" : {
             model_name:OUTFOX_CHAT_CONTINUATION for model_name
-                in ["llama-2-7b-chat-hf", "llama-2-13b-chat-hf", "llama-2-70b-chat-hf", "gpt2-hf"]
+                in ["llama-2-7b-chat-hf", "llama-2-13b-chat-hf", "llama-2-70b-chat-hf",
+                    "gpt2-hf", "tiny-random-llama"]
         },
         "xsum": {
-            model_name:XSUM_CHAT_CONTINUATION for model_name
+            **{model_name:XSUM_CHAT_CONTINUATION for model_name
+                in ["llama-2-7b-chat-hf", "llama-2-13b-chat-hf", "llama-2-70b-chat-hf"]},
+            **{model_name:XSUM_NON_CHAT_CONTINUATION for model_name
+               in ["llama-2-7b-hf", "llama-2-13b-hf", "llama-2-70b-hf",
+                   "gpt2-xl-hf", "gpt2-hf", "gpt2-small-hf", "gpt2-medium",
+                   "tiny-random-llama"]}
+        }
+    },
+    "wemb":{
+        "abstraction": {
+            model_name: ABSTRACTION_CHAT_CONTINUATION for model_name
                 in ["llama-2-7b-chat-hf", "llama-2-13b-chat-hf", "llama-2-70b-chat-hf",
-                    "gpt2-hf", "gpt2-small-hf", "gpt2-medium"]
+                    "gpt2-hf", "tiny-random-llama"]
         }
     }
 }
@@ -71,8 +97,10 @@ class PromptPreprocessor():
         self.preprocessing = args.preprocessing
         self.model_name = Path(args.name_or_path).name
         self.human_key = args.human_key
-        self.prompt = PROMPT_REGISTRY["semeval_task_3"][self.preprocessing][self.model_name]
+        self.project = vars(args).get("project", "semeval_task_3")
+        self.prompt = PROMPT_REGISTRY[self.project][self.preprocessing][self.model_name]
         self.split_at_random_length = vars(args).get("split_at_random_length", True)
+
 
     def interpolate_peerread_prompt(
         self, data_item, partial_prompt, num_of_words_to_generate, **kwargs):
@@ -86,6 +114,12 @@ class PromptPreprocessor():
 
     def interpolate_xsum_prompt(self, data_item, partial_prompt, **kwargs):
         return self.prompt.format(document=partial_prompt)
+
+    def interpolate_abstraction_prompt(self, data_item, **kwargs):
+        return self.prompt.format(
+            text1=data_item["text1"],
+            text2=data_item["text2"],
+            target_token=data_item["target_token"])
 
     def interpolate_outfox_prompt(self, data_item, partial_prompt, **kwargs):
         return self.prompt.format(
@@ -102,6 +136,8 @@ class PromptPreprocessor():
                 data_item, partial_prompt, **kwargs)
         elif self.preprocessing == "xsum":
             return self.prompt.format(data_item, document=partial_prompt, **kwargs)
+        elif self.preprocessing == "abstraction":
+            return self.interpolate_abstraction_prompt(data_item, **kwargs)
 
         raise ValueError(f"Unknown formatting {self.preprocessing}")
 

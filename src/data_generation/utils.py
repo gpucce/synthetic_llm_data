@@ -68,3 +68,10 @@ def get_min_length_logits_processor(min_length, eos_token_id):
             logits_row[eos_token_id] = float(-1e4)
         return logits_row
     return min_length_logits_processor
+
+def get_strict_min_length_logits_processor(min_length, eos_token_id):
+    def min_length_logits_processor(seq_ids, logits_row):
+        if len(seq_ids) < min_length:
+            logits_row[eos_token_id] = float(-1e4)
+        return logits_row
+    return min_length_logits_processor

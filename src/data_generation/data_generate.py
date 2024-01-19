@@ -14,77 +14,8 @@ from .utils import (
 )
 from ..utils import save_distributed_and_collect_on_main_rank
 
+
 datasets.disable_caching()
-
-def generate(text, llm, tokenizer, args, params, is_test=False, huggingface_or_vllm="huggingface"):
-
-    max_tokens = args.max_new_tokens
-    if is_test:
-        text = [i[:20] for i in text]
-    if huggingface_or_vllm == "vllm":
-        params.max_tokens = max_tokens
-        generated = llm.generate(text, sampling_params=params)
-        return [out.outputs[0].text for out in generated]
-
-    elif huggingface_or_vllm == "huggingface":
-        tokenizer.pad_token = tokenizer.eos_token
-        ids = tokenizer(text, return_tensors='pt', padding=True, truncation=True)
-
-        out = llm.generate(
-            **{i:j.to(llm.device) for i,j in ids.items()},
-            max_new_tokens=max_tokens,
-            min_new_tokens=args.min_new_tokens,
-            return_dict_in_generate=True,
-            output_scores=True,
-            no_repeat_ngram_size=6,
-            repetition_penalty=1.05,
-        )
-
-        full_out = tokenizer.batch_decode(
-            out["sequences"], skip_special_tokens=True)
-
-        return [gen[len(prompt):] for prompt, gen in zip(text, full_out)]
-
-def generate_synthetic(
-    prompt_dict, llm, tokenizer, idxs,
-    done_df, params, args, temp_output_path=None):
-
-    is_test = args.is_test
-    n_done = done_df.num_rows
-
-    preprocessing_fn = get_preprocessing_func(args)
-
-    if idxs[-1] < n_done:
-        new_prompt_dict = done_df[idxs]
-    else:
-        new_prompt_dict = {}
-        # TODO: make extra newline optional
-        new_prompt_dict["prompt"] = preprocessing_fn(prompt_dict)
-        new_prompt_dict["human_text"] = prompt_dict[args.human_key]
-        new_prompt_dict["machine_text"] = generate(
-            new_prompt_dict["prompt"], llm, tokenizer, args, params,
-            is_test=is_test, huggingface_or_vllm=args.huggingface_or_vllm)
-        new_prompt_dict["model"] = [(
-            args.name_or_path.split("/")[-1]
-            if len(args.name_or_path.split("/")[-1]) > 0
-            else args.name_or_path.split("/")[-2]
-        ) for _ in prompt_dict[args.human_key]]
-        new_prompt_dict["source"] = [
-            args.dataset_name for _ in prompt_dict[args.human_key]]
-        new_prompt_dict["source_ID"] = prompt_dict.get(
-            "source_ID", ["" for _ in prompt_dict[args.human_key]])
-
-        for key in prompt_dict:
-            if key not in new_prompt_dict:
-                new_prompt_dict[key] = prompt_dict[key]
-
-    with open(temp_output_path, "a") as json_out:
-        for batch_idx, _ in enumerate(new_prompt_dict["machine_text"]):
-            new_line = json.dumps({i:j[batch_idx] for i,j in new_prompt_dict.items()}) + "\n"
-            json_out.write(new_line)
-
-    return new_prompt_dict
-
 
 def get_model_tokenizer_and_params(args):
     if args.huggingface_or_vllm == "vllm":
@@ -117,6 +48,76 @@ def get_model_tokenizer_and_params(args):
         tokenizer = AutoTokenizer.from_pretrained(args.name_or_path)
 
     return llm, tokenizer, params
+
+def generate(text, llm, tokenizer, args, params, is_test=False, huggingface_or_vllm="huggingface"):
+
+    max_tokens = args.max_new_tokens
+    if is_test:
+        text = [i[:20] for i in text]
+    if huggingface_or_vllm == "vllm":
+        params.max_tokens = max_tokens
+        generated = llm.generate(text, sampling_params=params)
+        return [out.outputs[0].text for out in generated]
+
+    elif huggingface_or_vllm == "huggingface":
+        tokenizer.pad_token = tokenizer.eos_token
+        ids = tokenizer(text, return_tensors='pt', padding=True, truncation=True)
+
+        out = llm.generate(
+            **{i:j.to(llm.device) for i,j in ids.items()},
+            max_new_tokens=max_tokens,
+            min_new_tokens=args.min_new_tokens,
+            return_dict_in_generate=True,
+            output_scores=True,
+            no_repeat_ngram_size=6,
+            repetition_penalty=1.05,
+        )
+
+        full_out = tokenizer.batch_decode(
+            out["sequences"], skip_special_tokens=True)
+
+        return [gen[len(prompt):] for prompt, gen in zip(text, full_out)]
+
+def generate_synthetic(
+    prompt_dict, llm, tokenizer, params, args):
+
+    is_test = args.is_test
+
+    preprocessing_fn = get_preprocessing_func(args)
+
+    new_prompt_dict = {}
+    new_prompt_dict["prompt"] = preprocessing_fn(prompt_dict)
+    new_prompt_dict["human_text"] = prompt_dict[args.human_key]
+    new_prompt_dict["machine_text"] = generate(
+        new_prompt_dict["prompt"], llm, tokenizer, args, params,
+        is_test=is_test, huggingface_or_vllm=args.huggingface_or_vllm)
+
+    new_prompt_dict["model"] = [(
+        args.name_or_path.split("/")[-1]
+        if len(args.name_or_path.split("/")[-1]) > 0
+        else args.name_or_path.split("/")[-2]
+    ) for _ in prompt_dict[args.human_key]]
+
+    new_prompt_dict["source"] = [
+        args.dataset_name for _ in prompt_dict[args.human_key]]
+    new_prompt_dict["source_ID"] = prompt_dict.get(
+        "source_ID", ["" for _ in prompt_dict[args.human_key]])
+
+    for key in prompt_dict:
+        if key not in new_prompt_dict:
+            new_prompt_dict[key] = prompt_dict[key]
+
+    return new_prompt_dict
+
+def generation(args, data):
+    llm, tokenizer, params = get_model_tokenizer_and_params(args)
+
+    data = data.map(
+        lambda x: generate_synthetic(
+            x, llm, tokenizer, params, args), desc="Generating machine text",
+        batched=True, batch_size=args.max_batch_size)
+
+    return data
 
 def main(args):
 
@@ -152,27 +153,19 @@ def main(args):
     prompt_dicts = prompt_dicts.shard(num_shards=ntasks, index=procid)
 
     future_df_path = Path(args.output_path)
-    temp_file_path = f"{future_df_path}_temp_procid_{procid}.jsonl"
 
+    temp_file_path = f"{future_df_path}_temp_procid_{procid}.jsonl"
     done_df = datasets.Dataset.from_dict({})
     if os.path.exists(temp_file_path):
         if os.stat(temp_file_path).st_size > 0:
             done_df = datasets.load_dataset("json", data_files=temp_file_path)["train"]
         os.remove(temp_file_path)
 
-    llm, tokenizer, params = get_model_tokenizer_and_params(args)
-
-    prompt_dicts = prompt_dicts.map(
-        lambda x, idxs: generate_synthetic(
-            x, llm, tokenizer, idxs, done_df,
-            params, args, temp_output_path=temp_file_path),
-        with_indices=True, desc="Generating machine text",
-        batched=True, batch_size=args.max_batch_size)
-
+    prompt_dicts = generation(args, prompt_dicts)
 
     if args.columns_to_remove is not None:
         prompt_dicts = prompt_dicts.remove_columns(args.columns_to_remove)
-    
+
     prompt_dicts = save_distributed_and_collect_on_main_rank(
         data_shard=prompt_dicts, global_rank=procid, global_n_devices=ntasks,
         save_after_collect=False, output_file=str(future_df_path).replace(".jsonl", "")
