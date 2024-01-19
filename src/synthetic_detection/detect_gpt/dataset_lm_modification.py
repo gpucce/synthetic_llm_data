@@ -38,9 +38,6 @@ def tokenize_mask_extract_and_apply(
     batch_size = args.max_batch_size
 
     ds = ds.map(
-        lambda x: {col_name: process_spaces(x[col_name]).replace("\n", " ")})
-
-    ds = ds.map(
         lambda x: {f"modification_{idx}":
             tokenize_and_mask(x[col_name], span_length=2, pct=args.pct_mask)},
         batched=False, desc = "Tokenizing and masking")
@@ -66,177 +63,174 @@ def tokenize_mask_extract_and_apply(
 
     return ds, col_name
 
-def main():
-    args = custom_parse_args()
+def cut_to_shortest(x, args, col_names):
+    out = {}
+    min_len = min(len(x[col_name].split(" ")) for col_name in col_names)
+    min_len = min(min_len, args.max_seq_len)
+    for col_name in col_names:
+        out[col_name] = " ".join(x[col_name].split(" ")[:min_len])
+    return out
 
+def main(args):
 
-    col_names = args.col_names
+    assert not args.split_at_random_length
+    col_name = args.col_name
     output_path = Path(args.output_path)
-    n_modifications = args.n_modifications
+    n_modifications = args.n_modifications if args.do_modification else 0
     modifier_model_name = args.modifier_model
     debug = args.debug
     model_name = args.model_name
 
+    ntasks = int(os.environ.get("SLURM_NTASKS", 1))
+    print(f"################### NTASKS {ntasks}")
+    taskid = int(os.environ.get("SLURM_PROCID", 0))
+    print(f"################### TASKID {taskid}")
+    localid = int(os.environ.get("SLURM_LOCALID", 0)) # pylint: disable=unused-variable
+    print(f"################### LOCALID {localid}")
+
     ds = custom_load_dataset(args)
-    ds = ds.filter(lambda x: len(x[col_names].split(" ")) > args.min_new_tokens + 30)
+    ds = ds.shuffle(args.seed).select(range(args.n_samples * 10))
+    ds = ds.filter(lambda x: len(x["document"].split(" ")) > 250)
+    ds = ds.select(range(args.n_samples))
+
+    ds = ds.map(lambda x: {col_name: process_spaces(x[col_name]).strip()})
+    ds = ds.map(lambda x: {col_name: ' '.join(x[col_name].split())})
+    ds = ds.shard(num_shards=ntasks, index=taskid)
 
     if args.do_generation:
         assert args.dataset_type != "m4"
 
-        ds = generation(args, ds, clean_temp_files=False, output_on_all_nodes=True)
-        ds = datasets.DatasetDict({
-            "train": datasets.Dataset.from_dict({
-                col_names: ds["mixed_text"] + ds["human_text"],
+        ds = generation(args, ds)
+        ds = ds.map(lambda x: cut_to_shortest(x, args, ["human_text", "mixed_text"]))
+        ds = datasets.Dataset.from_dict({
+                col_name: ds["mixed_text"] + ds["human_text"],
                 "label": [1] * len(ds["mixed_text"]) + [0] * len(ds["human_text"]),
                 "prompt": ds["prompt"] * 2,
-                f"human_{col_names}": ds["human_text"] * 2,
-                "truncated_human_{col_names}": ds["truncated_human_text"] * 2,
+                f"human_{col_name}": ds["human_text"] * 2,
+                f"truncated_human_{col_name}": ds["truncated_human_text"] * 2,
                 "cut_at_sentence": ds["cut_at_sentence"] * 2,
             })
-        })
-
-    ntasks   = int(os.environ.get("SLURM_NTASKS", 1))
-    print(f"################### NTASKS {ntasks}")
-    taskid  = int(os.environ.get("SLURM_PROCID", 0))
-    print(f"################### TASKID {taskid}")
-    localid = int(os.environ.get("SLURM_LOCALID", 0)) # Pylint: disable=unused-variable
-    print(f"################### LOCALID {taskid}")
-
-
 
     output_path.mkdir(exist_ok=True, parents=True)
     with open(output_path / "experiment_modification_params.json", "w") as jf:
         json.dump(vars(args), jf)
 
-    modifier_model = AutoModelForSeq2SeqLM.from_pretrained(
-        modifier_model_name, torch_dtype=torch.bfloat16,
-        low_cpu_mem_usage=True, device_map="auto")
+    if args.do_modification:
+        modifier_model = AutoModelForSeq2SeqLM.from_pretrained(
+            modifier_model_name, low_cpu_mem_usage=True, device_map="auto")
 
-    modifier_tok = AutoTokenizer.from_pretrained(
-        modifier_model_name, fast=False, model_max_length=512)
+        modifier_tok = AutoTokenizer.from_pretrained(
+            modifier_model_name, fast=False, model_max_length=512)
 
-    for split in ds:
-        _ds = ds[split].shard(num_shards=ntasks, index=taskid)
-
-        for col_name in col_names.split(":"):
-
-            _ds = _ds.map(
-                lambda x: {
-                    f"original_{col_name}": x[col_name], 
-                    col_name: process_spaces(x[col_name]).replace("\n", " ")})
-
-            _ds = _ds.map(
-                lambda x: {col_name: " ".join(
-                    x[col_name].split(" ")[:args.max_seq_len])})
-
-            for n_modif in range(n_modifications):
-                _ds, local_col_name = tokenize_mask_extract_and_apply(
-                    ds=_ds, model=modifier_model, tok=modifier_tok,
-                    args=args, col_name=col_name, idx=n_modif)
+        for n_modif in range(n_modifications):
+            ds, local_col_name = tokenize_mask_extract_and_apply(
+                ds=ds, model=modifier_model, tok=modifier_tok,
+                args=args, col_name=col_name, idx=n_modif)
 
 
-                count = 0
-                while count < 10:
-                    count += 1
-                    msg = f"SPLIT {split} COL_NAME {col_name} "
-                    msg += f"MODIFICATION {n_modif} TRY: {count}"
-                    print(msg)
+            count = 0
+            while count < 10:
+                count += 1
+                msg = f"COL_NAME {col_name} "
+                msg += f"MODIFICATION {n_modif} TRY: {count}"
+                print(msg)
 
-                    if debug and count == 1:
-                        import random
-                        test_idxs = []
-                        for _ in range(2):
-                            debug_count = 0
-                            test_idx = random.randint(0, _ds.num_rows)
-                            while _ds[local_col_name][test_idx] == "" and debug_count < 10:
-                                test_idx = random.randint(0, _ds.num_rows)
-                                debug_count += 1
-                            _ds = _ds.map(lambda x, idx:
-                                {local_col_name: x[local_col_name] if idx != test_idx else ""},
-                                with_indices=True, desc="Debug")
-                            test_idxs.append(test_idx)
+                if debug and count == 1:
+                    import random
+                    test_idxs = []
+                    for _ in range(2):
+                        debug_count = 0
+                        test_idx = random.randint(0, ds.num_rows)
+                        while ds[local_col_name][test_idx] == "" and debug_count < 10:
+                            test_idx = random.randint(0, ds.num_rows)
+                            debug_count += 1
+                        ds = ds.map(lambda x, idx:
+                            {local_col_name: x[local_col_name] if idx != test_idx else ""},
+                            with_indices=True, desc="Debug")
+                        test_idxs.append(test_idx)
 
-                    mask = _ds.map(lambda x: {"mask": x[local_col_name] == ""})["mask"]
+                mask = ds.map(lambda x: {"mask": x[local_col_name] == ""})["mask"]
+                if not any(mask):
+                    break
 
-                    if not any(mask):
-                        break
+                idxs = [idx for idx, x in enumerate(mask) if x]
+                print(idxs)
 
-                    idxs = [idx for idx, x in enumerate(mask) if x]
+                replacement, _ = tokenize_mask_extract_and_apply(
+                    copy.deepcopy(ds.select(idxs)), model=modifier_model,
+                    tok=modifier_tok, args=args, col_name=col_name, idx=n_modif)
+                replacement = replacement[local_col_name]
+                print(replacement)
 
-                    replacement, _ = tokenize_mask_extract_and_apply(
-                        copy.deepcopy(_ds.select(idxs)), model=modifier_model,
-                        tok=modifier_tok, args=args, col_name=col_name, idx=n_modif)
-                    replacement = replacement[local_col_name]
+                if debug and count == 1:
+                    _idxs = []
+                    for test_idx in test_idxs:
+                        assert test_idx in idxs
+                        _idx = idxs.index(test_idx)
+                        assert replacement[_idx] != ds[local_col_name][test_idx]
+                        print(f"############## TEST IDX {test_idx}")
+                        print(replacement[_idx])
+                        print(ds[local_col_name][test_idx])
+                        _idxs.append(_idx)
 
-                    if debug and count == 1:
-                        _idxs = []
-                        for test_idx in test_idxs:
-                            assert test_idx in idxs
-                            _idx = idxs.index(test_idx)
-                            assert replacement[_idx] != _ds[local_col_name][test_idx]
-                            print(f"############## TEST IDX {test_idx}")
-                            print(replacement[_idx])
-                            print(_ds[local_col_name][test_idx])
-                            _idxs.append(_idx)
+                ds = ds.map(lambda x, idx:{local_col_name:
+                    replacement[idxs.index(idx)] if idx in idxs
+                    else x[local_col_name]}, with_indices=True)
 
-                    _ds = _ds.map(lambda x, idx:{local_col_name:
-                        replacement[idxs.index(idx)] if idx in idxs
-                        else x[local_col_name]}, with_indices=True)
+                if debug and count == 1:
+                    for _idx, test_idx in zip(_idxs, test_idxs):
+                        assert replacement[_idx] == ds[local_col_name][test_idx]
 
-                    if debug and count == 1:
-                        for _idx, test_idx in zip(_idxs, test_idxs):
-                            assert replacement[_idx] == _ds[local_col_name][test_idx]
+        del modifier_model
+        del modifier_tok
+    print(f"################### NTASKS {ntasks} TASKID {taskid} MODIFICATION DONE")
 
-        ds[split] = _ds
-        del _ds
-
-    del modifier_model
-    del modifier_tok
-
-    print(f"##################### NTASKS {ntasks} TASKID {taskid} MODIFICATION DONE")
+    dtype_map = {
+        "bfloat16": torch.bfloat16, 
+        "float16": torch.float16, 
+        "float32": torch.float32}
+    dtype = dtype_map[args.dtype]
 
     model = AutoModelForCausalLM.from_pretrained(
-        model_name, # torch_dtype=torch.bfloat16,
+        model_name, torch_dtype=dtype,
         low_cpu_mem_usage=True, device_map="auto")
 
     tok = AutoTokenizer.from_pretrained(
         model_name, fast=False, model_max_length=512)
-    tok.pad_token_id = tok.eos_token_id
 
-    for split in ds:
-        _ds = ds[split]
-        for col_name in col_names.split(":"):
-            _ds = _ds.map(
-                lambda x: {f"{col_name}_loss":
-                            compute_loglikelihood(x[col_name], model, tok)},
-                batched=True, batch_size=args.max_batch_size)
+    if not hasattr(tok, "pad_token_id") or tok.pad_token_id is None:
+        tok.pad_token_id = tok.eos_token_id
 
-            for i in range(n_modifications):
+    ds = ds.map(
+        lambda x: {f"{col_name}_loss":
+                    compute_loglikelihood(x[col_name], model, tok)},
+        batched=True, batch_size=args.max_batch_size)
 
-                _ds = _ds.map(
-                    lambda x: {f"{col_name}_synthetic_{i}_loss":
-                               # remember the minus here
-                                compute_loglikelihood(x[f"{col_name}_synthetic_{i}"], model, tok)},
-                    batched=True, batch_size=args.max_batch_size)
+    for i in range(n_modifications):
+        ds = ds.map(
+            lambda x: {f"{col_name}_synthetic_{i}_loss":
+                compute_loglikelihood(x[f"{col_name}_synthetic_{i}"], model, tok)},
+            batched=True, batch_size=args.max_batch_size)
 
-                if i == 0 and debug:
-                    print("DOC EXAMPLES", _ds[f"{col_name}"][:3])
-                    print("ORIGINAL LOSS", _ds[f"{col_name}_loss"][:3])
-                    print("MODIFIED DOC EXAMPLES", _ds[f"{col_name}_synthetic_0"][:3])
-                    print("MODIFIED LOSS", _ds[f"{col_name}_synthetic_0_loss"][:3])
+        print(f"LOSS {i} DONE")
+        if i == 0:
+            print("DOC EXAMPLES", ds[f"{col_name}"][:3])
+            print("ORIGINAL LOSS", ds[f"{col_name}_loss"][:3])
+            print("MODIFIED DOC EXAMPLES", ds[f"{col_name}_synthetic_0"][:3])
+            print("MODIFIED LOSS", ds[f"{col_name}_synthetic_0_loss"][:3])
 
-            _ds = _ds.map(
-                lambda x: {f"{col_name}_score":
-                            batched_detect_score(x, re_pattern="synthetic.*loss")},
-                batched=True, batch_size=args.max_batch_size)
-
-        ds[split] = save_distributed_and_collect_on_main_rank(
-            data_shard=_ds, global_rank=taskid, global_n_devices=ntasks,
-            split=split, output_file=output_path, save_after_collect=False)
+    ds = ds.map(
+        lambda x: {f"{col_name}_score":
+                    batched_detect_score(x, re_pattern="synthetic.*loss")},
+        batched=True, batch_size=args.max_batch_size)
+    ds = save_distributed_and_collect_on_main_rank(
+        data_shard=ds, global_rank=taskid, global_n_devices=ntasks,
+        output_file=output_path, save_after_collect=False)
 
     if taskid == 0:
         ds.save_to_disk(output_path)
 
 
 if __name__ == "__main__":
-    main()
+    main(custom_parse_args())
+ 

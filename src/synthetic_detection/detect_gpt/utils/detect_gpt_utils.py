@@ -28,7 +28,7 @@ def compute_loglikelihood(texts, model, tokenizer):
     return [-i for i in compute_loss(texts, model, tokenizer)]
 
 def per_sequence_crossentropy(inputs, labels):
-    loss_fn = CrossEntropyLoss()
+    loss_fn = CrossEntropyLoss(ignore_index=-100)
     out = []
     for lo, la in zip(inputs, labels):
         out.append(loss_fn(lo.view(-1, lo.size(-1)), la.view(-1)).detach().cpu().item())

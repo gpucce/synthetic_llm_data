@@ -2,7 +2,6 @@ import re
 
 import numpy as np
 
-
 PATTERN = re.compile(r"<extra_id_\d+>")
 
 
@@ -18,11 +17,11 @@ def replace_masks(texts, model, tokenizer):
     tokens = tokenizer(texts, return_tensors="pt", padding=True, truncation=True, max_length=512)
     outputs = model.generate(
         **{i:j.to(model.device) for i,j in tokens.items()},
-        max_length=150,
         do_sample=True,
         top_p=1.0,
         num_return_sequences=1,
         eos_token_id=stop_id,
+        max_new_tokens=150
     )
     return tokenizer.batch_decode(outputs, skip_special_tokens=False)
 
@@ -38,7 +37,8 @@ def _replace_mask_string(tokens, mask_string):
 
 def tokenize_and_mask_with_indices(text, start, stop):
     mask_string = "<<<mask>>>"
-    text = text[:start] + mask_string + text[stop + 1:]
+    text = text[:start] + f" {mask_string} " + text[stop + 1:] # + 1 because "end" is not 0-indexed
+    text = re.sub(" +", " ", text)
     tokens = text.split(" ")
     tokens, _ = _replace_mask_string(tokens, mask_string)
     text = " ".join(tokens)
