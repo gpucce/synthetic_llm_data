@@ -1,6 +1,6 @@
 python -u -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_modification \
     --output-path "small_test" \
-    --modifier-model "/leonardo_scratch/large/userexternal/gpuccett/models/hf_t5/t5-small" \
+    --modifier-model "/leonardo_scratch/large/userexternal/gpuccett/models/hf_t5/t5-3b" \
     --model-name "/leonardo_scratch/large/userexternal/gpuccett/models/hf_gpt/gpt2-hf" \
     --name-or-path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_gpt/gpt2-hf" \
     --data-path "/leonardo_scratch/large/userexternal/gpuccett/data/xsum" \
@@ -13,10 +13,10 @@ python -u -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_mo
     --dtype float32 \
     --dataset-type disk \
     --padding-side left \
-    --min-new-tokens 150 \
-    --max-new-tokens 200 \
-    --max-seq-len 150 \
+    --min-new-tokens 200 \
+    --max-new-tokens 250 \
+    --max-seq-len 200 \
     --preprocessing xsum \
-    --n-samples 100 \
-    --seed 10
-
+    --n-samples 200 \
+    --seed 10 \
+    --multi-length-clipping

@@ -1,5 +1,5 @@
 import re
-
+import random
 import numpy as np
 
 PATTERN = re.compile(r"<extra_id_\d+>")
@@ -11,10 +11,10 @@ def count_masks(texts):
 
 
 # replace each masked span with a sample from T5 mask_model
-def replace_masks(texts, model, tokenizer):
+def replace_masks(texts, model, tokenizer, args):
     n_expected = count_masks(texts)
     stop_id = tokenizer.encode(f"<extra_id_{max(n_expected)}>")[0]
-    tokens = tokenizer(texts, return_tensors="pt", padding=True, truncation=True, max_length=512)
+    tokens = tokenizer(texts, return_tensors="pt", padding=True, truncation=True, max_length=1024)
     outputs = model.generate(
         **{i:j.to(model.device) for i,j in tokens.items()},
         do_sample=True,
@@ -132,3 +132,9 @@ def process_spaces(text):
     )
 
     return text
+
+
+def multiple_length_cutting(x, col_name, length):
+    max_length = length // 10
+    interval = random.randint(max_length - 15, max_length)
+    return {col_name: " ".join(x[col_name].split(" ")[:length - interval * 10])}

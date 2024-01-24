@@ -49,12 +49,12 @@ XSUM_NON_CHAT_CONTINUATION = """{document}"""
 
 ABSTRACTION_CHAT_CONTINUATION = """Answer as an experienced linguist.
 
-Given two sentences, SENT1 and SENT2, both containing a word WORD, I would like you to tell me if the word WORD is used in a more abstract way in the first sentence, SENT1, or in the second sentence, SENT2.
-Please answer by saying "SENT1" or "SENT2" only.
+Given two sentences, (SENT1) and (SENT2), both containing a word (WORD), please tell me if this word (WORD) is more abstract in the first sentence (SENT1), or in the second sentence (SENT2).
+(Please answer by saying "sentence 1" or "sentence 2" only.)
 
-SENT1:{text1}
+{few_shots}SENT1: {text1}
 
-SENT2:{text2}
+SENT2: {text2}
 
 WORD: {target_token}
 
@@ -87,20 +87,22 @@ PROMPT_REGISTRY = {
         "abstraction": {
             model_name: ABSTRACTION_CHAT_CONTINUATION for model_name
                 in ["llama-2-7b-chat-hf", "llama-2-13b-chat-hf", "llama-2-70b-chat-hf",
-                    "gpt2-hf", "tiny-random-llama"]
+                    "gpt2-hf", "tiny-random-llama", "gpt2-medium"]
         }
     }
 }
 
 class PromptPreprocessor():
-    def __init__(self, args):
+    def __init__(self, args, data):
         self.preprocessing = args.preprocessing
         self.model_name = Path(args.name_or_path).name
         self.human_key = args.human_key
-        self.project = vars(args).get("project", "semeval_task_3")
+        self.project = args.project
         self.prompt = PROMPT_REGISTRY[self.project][self.preprocessing][self.model_name]
-        self.split_at_random_length = vars(args).get("split_at_random_length", True)
-
+        self.split_at_random_length = args.split_at_random_length
+        self.selected_boundary = args.selected_boundary
+        self.n_few_shots = args.n_few_shots
+        self.data = data
 
     def interpolate_peerread_prompt(
         self, data_item, partial_prompt, num_of_words_to_generate, **kwargs):
@@ -116,10 +118,36 @@ class PromptPreprocessor():
         return self.prompt.format(document=partial_prompt)
 
     def interpolate_abstraction_prompt(self, data_item, **kwargs):
+        few_shots = ""
+        if self.n_few_shots > 0:
+            _few_shots = []
+            few_shot_template = "SENT1: {text1}\n\nSENT2: {text2}\n\nWORD: {target_token}\n\nANSWER:"
+            assert few_shot_template in self.prompt, "Few shot template not found in the prompt"
+            few_shot_template += "{answer}"
+            for _ in range(self.n_few_shots):
+                few_shot_data_item = self.data[random.randint(0, len(self.data) - 1)]
+                while (few_shot_data_item["target_lemma1"] == data_item["target_lemma1"] or
+                       few_shot_data_item["target_lemma2"] == data_item["target_lemma2"]):
+                    few_shot_data_item = self.data[random.randint(0, len(self.data))]
+
+                answer = "sentence 1" if few_shot_data_item["first_more_abstract"] else "sentence 2"
+                answer += "\n\n"
+                few_shot_prompt = few_shot_template.format(
+                    text1=few_shot_data_item["text1"],
+                    text2=few_shot_data_item["text2"],
+                    target_token=few_shot_data_item["target_token"],
+                    answer=answer
+                )
+                _few_shots.append(few_shot_prompt)
+            few_shots = (f"Here are {self.n_few_shots} examples of the task:\n\n" + 
+                "".join(_few_shots))
+
         return self.prompt.format(
             text1=data_item["text1"],
             text2=data_item["text2"],
-            target_token=data_item["target_token"])
+            target_token=data_item["target_token"],
+            few_shots = few_shots
+        )
 
     def interpolate_outfox_prompt(self, data_item, partial_prompt, **kwargs):
         return self.prompt.format(
@@ -180,15 +208,19 @@ class PromptPreprocessor():
 
         num_of_words = len(words)
 
-        selected_boundary = 30
+        selected_boundary = self.selected_boundary
         if self.split_at_random_length:
             selected_boundary = self.get_boundary(
                 num_of_words, cut_at_sentence, words, sentences)
 
-        kwargs = {"num_of_words_to_generate": num_of_words - selected_boundary}
+        interpolation_kwargs = {
+            "num_of_words_to_generate": num_of_words - (
+                selected_boundary if selected_boundary is not None else len(words)
+            )
+        }
 
         partial_prompt = " ".join(words[:selected_boundary])
-        updated_prompt = self.interpolate_prompt(data_item, partial_prompt, **kwargs)
+        updated_prompt = self.interpolate_prompt(data_item, partial_prompt, **interpolation_kwargs)
 
         data_item["human_text"] = human_review
         data_item["cut_at_sentence"] = cut_at_sentence

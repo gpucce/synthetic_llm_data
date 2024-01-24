@@ -1,21 +1,21 @@
 import json
 from pathlib import Path
-from argparse import ArgumentParser
-from datasets import load_dataset
+from datasets import Dataset, load_dataset
+
 
 from synthetic_llm_data.src.data_generation.data_complete import generation
-
 from .args import lmrater_parse_args
-
-
+from .utils import get_pairs
 
 def main(args):
 
     print("Loading data...")
     ds = load_dataset("csv", data_files=args.data_path)["train"]
 
-    if args.max_samples is not None:
-        ds = ds.shuffle(args.seed).select(range(args.max_samples))
+    ds = get_pairs(ds.to_pandas())
+
+    if args.max_prompts is not None:
+        ds = ds.shuffle(args.seed).select(range(args.max_prompts))
 
     ds = generation(args, ds)
 

@@ -32,7 +32,8 @@ def get_model_and_tokenizer(args):
 
         llm = AutoModelForCausalLM.from_pretrained(
             args.name_or_path, torch_dtype=dtype, device_map="auto")
-        tokenizer = AutoTokenizer.from_pretrained(args.name_or_path, padding_side=args.padding_side)
+        tokenizer = AutoTokenizer.from_pretrained(
+            args.name_or_path, padding_side=args.padding_side)
 
     elif args.huggingface_or_vllm == "vllm":
 
@@ -47,9 +48,10 @@ def get_model_and_tokenizer(args):
 
 def generate(text, llm, tokenizer, args):
 
-    lengths = [len(i) for i in tokenizer(text).input_ids]
-    min_len, max_len = min(lengths), max(lengths)
-    min_new_tokens = args.min_new_tokens + (max_len - min_len)
+    min_new_tokens = args.min_new_tokens
+    # lengths = [len(i) for i in tokenizer(text).input_ids]
+    # min_len, max_len = min(lengths), max(lengths)
+    # min_new_tokens += (max_len - min_len)
 
 
     if args.huggingface_or_vllm == "vllm":
@@ -85,7 +87,7 @@ def generate(text, llm, tokenizer, args):
 
         ids = tokenizer(
             text, return_tensors='pt', padding=True,
-            truncation=True, max_length=256)
+            truncation=True, max_length=640)
 
         count = 0
         while count <= 10:
@@ -120,7 +122,7 @@ def generate_synthetic(x, llm, tokenizer, args):
 
 def generation(args, data):
 
-    preprocessing_fn = PromptPreprocessor(args)
+    preprocessing_fn = PromptPreprocessor(args, data)
     data = data.map(preprocessing_fn, desc="Generating prompts")
 
     print('Loading the model...')

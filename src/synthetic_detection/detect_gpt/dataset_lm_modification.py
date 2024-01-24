@@ -25,12 +25,14 @@ from .utils import (
     compute_loglikelihood,
     batched_detect_score,
     custom_load_dataset,
+    multiple_length_cutting
 )
 
 from ...data_generation import generation
 
 os.environ['OPENBLAS_NUM_THREADS'] = '64'
 datasets.disable_caching()
+
 
 def tokenize_mask_extract_and_apply(
     ds, model, tok, col_name, args, idx):
@@ -44,7 +46,7 @@ def tokenize_mask_extract_and_apply(
 
     ds = ds.map(
         lambda x: {f"fills_{idx}":
-            replace_masks(x[f"modification_{idx}"], model, tok)},
+            replace_masks(x[f"modification_{idx}"], model, tok, args)},
         batched=True, batch_size=batch_size, desc = "Replacing masks")
 
     ds = ds.map(
@@ -110,6 +112,11 @@ def main(args):
                 f"truncated_human_{col_name}": ds["truncated_human_text"] * 2,
                 "cut_at_sentence": ds["cut_at_sentence"] * 2,
             })
+
+        if args.multi_length_clipping:
+            ds = ds.map(lambda x: multiple_length_cutting(x, col_name, args.max_seq_len))
+
+
 
     output_path.mkdir(exist_ok=True, parents=True)
     with open(output_path / "experiment_modification_params.json", "w") as jf:

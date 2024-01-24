@@ -1,10 +1,11 @@
 
 import re
 import random
+
 from itertools import combinations
 
 import pandas as pd
-
+from datasets import Dataset
 from synthetic_llm_data.src.synthetic_detection.detect_gpt.utils import (
     tokenize_and_mask_with_indices
 )
@@ -37,6 +38,7 @@ def blow_columns(x, col_name="text"):
     synthetic_cols = [col for col in x.columns if re.match("text_synthetic_\d+$", col)]
     for c in ["ID", "text", "begin", "end", "target_token"]:
         future_df[c] = list(x[c])
+    future_df["original"] = [True for _ in x["ID"]]
 
     for n_replica, _ in enumerate(synthetic_cols):
         print(n_replica)
@@ -46,6 +48,7 @@ def blow_columns(x, col_name="text"):
         future_df["end"].extend(i for i in x[f"{col_name}_synthetic_{n_replica}_end"])
         future_df["target_token"].extend(
             i for i in x[f"{col_name}_synthetic_{n_replica}_target_token"])
+        future_df["original"].extend(False for _ in x["ID"])
 
     for c in x.columns:
         if c not in synthetic_cols and c not in future_df:
@@ -63,7 +66,8 @@ def get_pairs(df):
             return x
 
         future_df = {"ID": [], "text": [], "text1": [], "text2": [], "target_token": [],
-            "first_more_abstract": [], "first_more_inclusive": []}
+            "first_more_abstract": [], "first_more_inclusive": [], "target_lemma1": [], 
+            "target_lemma2": []}
 
         for i,j in combinations(range(x.shape[0]), 2):
             if random.random() < 0.5:
@@ -73,13 +77,16 @@ def get_pairs(df):
             future_df["text1"].append(x["text"].iloc[i])
             future_df["text2"].append(x["text"].iloc[j])
             future_df["ID"].append(x["ID"].iloc[i] + "_" + x["ID"].iloc[j])
-            future_df["target_token"].append(
-                x["target_token"].iloc[i] + "_" + x["target_token"].iloc[j])
+            # TODO: this is not perfect, probably needs fixing because word in i and j might be different
+            future_df["target_token"].append(x["target_token"].iloc[i])
             future_df["first_more_abstract"].append(x["abs_mean"].iloc[i] > x["abs_mean"].iloc[j])
             future_df["first_more_inclusive"].append(x["inc_mean"].iloc[i] > x["inc_mean"].iloc[j])
+            future_df["target_lemma1"].append(x["target_lemma"].iloc[i])
+            future_df["target_lemma2"].append(x["target_lemma"].iloc[j])
 
         return pd.DataFrame(future_df)
 
     new_df = gdf.apply(_get_pairs)
     # new_df.drop("ID_GROUP", axis=1, inplace=True)
+    new_df = Dataset.from_pandas(new_df)
     return new_df

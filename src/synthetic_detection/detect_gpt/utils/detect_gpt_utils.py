@@ -5,7 +5,7 @@ import torch
 from torch.nn import CrossEntropyLoss
 
 
-def compute_loss(texts, model, tokenizer, loss_type="non_multilabel"):
+def compute_loss(texts, model, tokenizer):
     tokens = tokenizer(
         texts, return_tensors="pt", padding=True,
         truncation=True, max_length=512)
@@ -16,12 +16,7 @@ def compute_loss(texts, model, tokenizer, loss_type="non_multilabel"):
         labels[pad_mask] = -100
         logits = outputs.logits[..., :-1, :]
         labels = labels[..., 1:]
-        if loss_type == "multilabel":
-            t_logits = logits.transpose(-1, -2)
-            loss = multilabel_per_sequence_crossentropy(
-                t_logits, labels.to(t_logits.device)).detach().cpu().tolist()
-        else:
-            loss = per_sequence_crossentropy(logits, labels.to(logits.device))
+        loss = per_sequence_crossentropy(logits, labels.to(logits.device))
         return loss
 
 def compute_loglikelihood(texts, model, tokenizer):

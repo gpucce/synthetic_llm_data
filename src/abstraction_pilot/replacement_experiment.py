@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from argparse import ArgumentParser
 
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from datasets import load_dataset
@@ -14,7 +13,7 @@ from synthetic_llm_data.src.synthetic_detection.detect_gpt.utils import (
     apply_extracted_fills,
 )
 
-from .utils import postprocess_data, blow_columns, get_pairs
+from .utils import postprocess_data, blow_columns
 from .args import replacement_parse_args
 
 
@@ -30,7 +29,7 @@ def tokenize_mask_extract_and_apply(
 
     ds = ds.map(
         lambda x: {f"fills_{idx}":
-            replace_masks(x[f"modification_{idx}"], model, tok)},
+            replace_masks(x[f"modification_{idx}"], model, tok, args)},
             # replace_masks_with_many(x[f"modification_{idx}"], model, tok, temperature=0.8)},
         batched=True, batch_size=batch_size, desc = "Replacing masks")
 
@@ -62,12 +61,8 @@ def main(args):
 
     ds = load_dataset("csv", data_files=args.data_path)["train"]
 
-    pairs_df = get_pairs(ds.to_pandas())
-    pairs_df.to_csv(
-        Path(args.output_path).parent / ("pairs_" + Path(args.output_path).name), index=False)
-
-    if args.max_samples is not None:
-        ds = ds.shuffle(args.seed).select(range(args.max_samples))
+    if args.max_prompts is not None:
+        ds = ds.shuffle(args.seed).select(range(args.max_prompts))
 
     print("Loading model...")
     modifier_model = AutoModelForSeq2SeqLM.from_pretrained(
