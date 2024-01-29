@@ -49,18 +49,6 @@ def get_preprocessing_func(args):
 
     return lambda x: x["prompt"]
 
-
-def save_to_right_format(ds, output_file):
-    output_file = str(output_file)
-    if output_file.endswith(".jsonl"):
-        ds.to_json(output_file, orient="records", lines=True)
-    elif output_file.endswith(".json"):
-        ds.to_json(output_file, lines=False)
-    elif output_file.endswith(".csv"):
-        ds.to_csv(output_file)
-    else:
-        raise ValueError(f"Unknown output file format {output_file}")
-
 def get_min_length_logits_processor(min_length, eos_token_id):
     def min_length_logits_processor(seq_ids, logits_row):
         true_min_length = random.randint(max(min_length - 200, 0), min_length)

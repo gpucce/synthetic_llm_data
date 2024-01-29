@@ -143,3 +143,14 @@ def save_distributed_and_collect_on_main_rank(
                 shutil.rmtree(file_name)
 
         return dataset
+
+def save_to_right_format(ds, output_file):
+    output_file = str(output_file)
+    if output_file.endswith(".jsonl"):
+        ds.to_json(output_file, orient="records", lines=True)
+    elif output_file.endswith(".json"):
+        ds.to_json(output_file, lines=False)
+    elif output_file.endswith(".csv"):
+        ds.to_csv(output_file)
+    else:
+        raise ValueError(f"Unknown output file format {output_file}")

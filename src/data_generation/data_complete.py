@@ -29,9 +29,15 @@ def get_model_and_tokenizer(args):
                 dtype = dtye_map[args.dtype]
             except KeyError:
                 raise ValueError(f"Invalid dtype {args.dtype}")
+        try:
+            llm = AutoModelForCausalLM.from_pretrained(
+                args.name_or_path, torch_dtype=dtype, device_map="auto",
+                attn_implementation="flash_attention_2", low_cpu_mem_usage=True)
+        except Exception as e:
+            print(f"Failed to load model with flash attention because {e}, trying without")
+            llm = AutoModelForCausalLM.from_pretrained(
+                args.name_or_path, torch_dtype=dtype, device_map="auto")
 
-        llm = AutoModelForCausalLM.from_pretrained(
-            args.name_or_path, torch_dtype=dtype, device_map="auto")
         tokenizer = AutoTokenizer.from_pretrained(
             args.name_or_path, padding_side=args.padding_side)
 
@@ -40,7 +46,7 @@ def get_model_and_tokenizer(args):
         llm = LLM(
             model=args.name_or_path,
             tensor_parallel_size=args.tensor_parallel_size,
-            dtype=args.dtype)
+            dtype=args.dtype, tokenizer_mode="slow")
 
         tokenizer = llm.get_tokenizer()
 
@@ -76,8 +82,10 @@ def generate(text, llm, tokenizer, args):
             out = [out.outputs[0].text for out in out]
             out = [re.sub(" +", " ", prompt + " " + generation)
                    for prompt, generation in zip(text, out)]
+
             if all(len(i.split(" ")) > args.max_seq_len for i in out):
                 break
+
             count += 1
 
 
@@ -87,7 +95,7 @@ def generate(text, llm, tokenizer, args):
 
         ids = tokenizer(
             text, return_tensors='pt', padding=True,
-            truncation=True, max_length=640)
+            truncation=True, max_length=1024)
 
         count = 0
         while count <= 10:
@@ -100,24 +108,25 @@ def generate(text, llm, tokenizer, args):
                 top_k=args.top_k,
                 temperature=args.temperature,
                 return_dict_in_generate=True,
+                num_beams=1 if not args.use_beam_search else 3,
+                early_stopping=args.use_beam_search
             )
 
             out = tokenizer.batch_decode(out["sequences"], skip_special_tokens=True)
-
             if all(len(i.split(" ")) > args.max_seq_len for i in out):
                 break
+
             count += 1
 
-    return [generation[len(prompt):]
+    return out, [generation[len(prompt):].strip()
         for generation, prompt in zip(out, text)]
 
 def generate_synthetic(x, llm, tokenizer, args):
     out = {}
-    out["machine_text"] = generate(x["prompt"], llm, tokenizer, args)
-    out["mixed_text"] = [
-        re.sub(" +", " ", i + " " + j) for i,j in
-        zip(x["truncated_human_text"], out["machine_text"])]
-
+    out["mixed_text"], out["machine_text"] = generate(x["prompt"], llm, tokenizer, args)
+    out["mixed_text_no_prompt"] = [
+        re.sub(" +", " ", prompt + " " + generation)
+        for prompt, generation in zip(x["truncated_human_text"], out["machine_text"])]
     return out
 
 def generation(args, data):

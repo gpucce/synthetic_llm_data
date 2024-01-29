@@ -40,4 +40,5 @@ srun python -u -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_
     --preprocessing xsum \
     --padding-side "left" \
     --n-samples 500 \
-    --seed 15
+    --seed 15 \
+    --do-compute-loss

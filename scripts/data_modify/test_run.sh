@@ -10,13 +10,14 @@ python -u -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_mo
     --n-modifications 2 \
     --human-key "document" \
     --max-batch-size 16 \
-    --dtype float32 \
+    --dtype float16 \
     --dataset-type disk \
     --padding-side left \
-    --min-new-tokens 200 \
-    --max-new-tokens 250 \
-    --max-seq-len 200 \
+    --min-new-tokens 150 \
+    --max-new-tokens 200 \
+    --max-seq-len 150 \
     --preprocessing xsum \
-    --n-samples 200 \
+    --n-samples 100 \
     --seed 10 \
-    --multi-length-clipping
+    --multi-length-clipping \
+    --do-compute-loss

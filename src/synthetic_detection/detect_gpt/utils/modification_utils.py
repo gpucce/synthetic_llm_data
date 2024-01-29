@@ -21,7 +21,7 @@ def replace_masks(texts, model, tokenizer, args):
         top_p=1.0,
         num_return_sequences=1,
         eos_token_id=stop_id,
-        max_new_tokens=150
+        max_new_tokens=args.max_new_tokens
     )
     return tokenizer.batch_decode(outputs, skip_special_tokens=False)
 
@@ -136,5 +136,5 @@ def process_spaces(text):
 
 def multiple_length_cutting(x, col_name, length):
     max_length = length // 10
-    interval = random.randint(max_length - 15, max_length)
-    return {col_name: " ".join(x[col_name].split(" ")[:length - interval * 10])}
+    interval = random.randint(max_length - 10, max_length)
+    return {col_name: " ".join(x[col_name].split(" ")[:interval * 10])}

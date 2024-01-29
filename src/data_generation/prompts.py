@@ -60,6 +60,53 @@ WORD: {target_token}
 
 ANSWER:"""
 
+CHANGE_IT_CAMOSCIO_CHAT_CONTINUATION="""
+Di seguito è riportata una istruzione che descrive un task. Scrivete una risposta che completi in modo appropriato la richiesta.\n\n
+
+### Istruzione:
+Dato un titolo (TITOLO), scrivi un articolo di giornale di almeno 1000 parole il cui quello (TITOLO) sia il titolo.
+Scrivi nel modo più elegante possibile.
+
+### Input:
+TITOLO = {title}
+
+### Risposta: {article}
+"""
+
+CHANGE_IT_MISTRAL_NON_CHAT_CONTINUATION="""{title}\n
+{article}"""
+
+CHANGE_IT_MISTRAL_CHAT_CONTINUATION="""[INST]
+Dato un titolo (TITOLO), scrivi un articolo di giornale di almeno 1000 parole di cui quello (TITOLO) sia il titolo.
+Scrivi nel modo più elegante possibile e non ripetere o scrivere assolutamente e in alcun caso il titolo (TITOLO). [/INST]
+
+TITOLO: {title}
+
+ARTICOLO: {article}
+"""
+
+CHANGE_IT_LLAMA_CHAT_CONTINUATION="""[INST] <<SYS>>
+Write in Italian as an expert italian journalist that never repeats himself.
+<</SYS>>
+
+Dato un titolo (TITOLO), scrivi un articolo di giornale di almeno 1000 parole di cui quello (TITOLO) sia il titolo.
+Scrivi nel modo più elegante possibile e non ripetere o scrivere assolutamente e in alcun caso il titolo (TITOLO). [/INST]
+
+TITOLO: {title}
+
+ARTICOLO: {article}
+"""
+
+CHANGE_IT_FINETUNE_CHAT_CONTINUATION=(
+"""Dato il seguente titolo di un articolo di giornale scrivi l\'articolo.
+
+### Titolo:
+{title}
+
+### Articolo:
+{article}
+""")
+
 PROMPT_REGISTRY = {
     "semeval_task_3" : {
         "peerread" : {
@@ -89,6 +136,20 @@ PROMPT_REGISTRY = {
                 in ["llama-2-7b-chat-hf", "llama-2-13b-chat-hf", "llama-2-70b-chat-hf",
                     "gpt2-hf", "tiny-random-llama", "gpt2-medium"]
         }
+    },
+    "ita_news":{
+        "change_it": {
+            **{model_name: CHANGE_IT_CAMOSCIO_CHAT_CONTINUATION for model_name
+                in ["camoscio2_13b_v2", "camoscio2-70b-lora-hf_v2"]},
+            **{model_name: CHANGE_IT_LLAMA_CHAT_CONTINUATION for model_name
+                in ["llama-2-7b-chat-hf", "llama-2-13b-chat-hf", "llama-2-70b-chat-hf"]},
+            **{model_name: CHANGE_IT_MISTRAL_CHAT_CONTINUATION for model_name
+                in ["Mixtral-8x7B-Instruct-v0.1", "Mistral-7B-Instruct-v0.2"]},
+            **{model_name: CHANGE_IT_MISTRAL_NON_CHAT_CONTINUATION for model_name
+                in ["Mistral-7B-v0.1", "Mixtral-8x7B-v0.1"]},
+            **{model_name: CHANGE_IT_FINETUNE_CHAT_CONTINUATION for model_name
+                in ["llama-13b_change_it"]}
+        }
     }
 }
 
@@ -117,11 +178,12 @@ class PromptPreprocessor():
     def interpolate_xsum_prompt(self, data_item, partial_prompt, **kwargs):
         return self.prompt.format(document=partial_prompt)
 
-    def interpolate_abstraction_prompt(self, data_item, **kwargs):
+    def interpolate_abstraction_prompt(self, data_item, partial_prompt, **kwargs):
         few_shots = ""
         if self.n_few_shots > 0:
             _few_shots = []
-            few_shot_template = "SENT1: {text1}\n\nSENT2: {text2}\n\nWORD: {target_token}\n\nANSWER:"
+            few_shot_template = (
+                "SENT1: {text1}\n\nSENT2: {text2}\n\nWORD: {target_token}\n\nANSWER:")
             assert few_shot_template in self.prompt, "Few shot template not found in the prompt"
             few_shot_template += "{answer}"
             for _ in range(self.n_few_shots):
@@ -139,7 +201,7 @@ class PromptPreprocessor():
                     answer=answer
                 )
                 _few_shots.append(few_shot_prompt)
-            few_shots = (f"Here are {self.n_few_shots} examples of the task:\n\n" + 
+            few_shots = (f"Here are {self.n_few_shots} examples of the task:\n\n" +
                 "".join(_few_shots))
 
         return self.prompt.format(
@@ -155,6 +217,11 @@ class PromptPreprocessor():
             partial_essay=partial_prompt
         )
 
+    def interpolate_changeit(self, data_item, partial_prompt, **kwargs):
+        return self.prompt.format(
+            title=data_item["headline"],
+            article=partial_prompt)
+
     def interpolate_prompt(self, data_item, partial_prompt, **kwargs):
         if self.preprocessing == "peerread":
             return self.interpolate_peerread_prompt(
@@ -166,6 +233,8 @@ class PromptPreprocessor():
             return self.prompt.format(data_item, document=partial_prompt, **kwargs)
         elif self.preprocessing == "abstraction":
             return self.interpolate_abstraction_prompt(data_item, **kwargs)
+        elif self.preprocessing == "change_it":
+            return self.interpolate_changeit(data_item, partial_prompt=partial_prompt)
 
         raise ValueError(f"Unknown formatting {self.preprocessing}")
 
@@ -199,6 +268,7 @@ class PromptPreprocessor():
         2. randomly at a closest sentence boundary in the 1/10th to 5/10th of the review.
         """
 
+
         human_review = data_item[self.human_key]
 
         cut_at_sentence = random.randint(0, 2) > 1
@@ -212,6 +282,7 @@ class PromptPreprocessor():
         if self.split_at_random_length:
             selected_boundary = self.get_boundary(
                 num_of_words, cut_at_sentence, words, sentences)
+        selected_boundary = min(selected_boundary, num_of_words)
 
         interpolation_kwargs = {
             "num_of_words_to_generate": num_of_words - (
@@ -222,7 +293,7 @@ class PromptPreprocessor():
         partial_prompt = " ".join(words[:selected_boundary])
         updated_prompt = self.interpolate_prompt(data_item, partial_prompt, **interpolation_kwargs)
 
-        data_item["human_text"] = human_review
+        data_item["human_text"] = self.interpolate_prompt(data_item, human_review, **interpolation_kwargs)
         data_item["cut_at_sentence"] = cut_at_sentence
         data_item["human_end_boundary"] = selected_boundary
         data_item["prompt"] = updated_prompt

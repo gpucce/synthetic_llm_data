@@ -9,10 +9,9 @@ import datasets
 from .args import parse_generate_args
 from .utils import (
     get_preprocessing_func,
-    save_to_right_format,
     get_min_length_logits_processor
 )
-from ..utils import save_distributed_and_collect_on_main_rank
+from ..utils import save_distributed_and_collect_on_main_rank, save_to_right_format
 
 
 datasets.disable_caching()
