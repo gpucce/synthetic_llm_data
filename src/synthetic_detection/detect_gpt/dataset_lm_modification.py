@@ -93,11 +93,15 @@ def main(args):
 
 
     ds = custom_load_dataset(args)
-    ds = ds.select(range(min(args.n_samples * 10, ds.num_rows)))
+    if args.n_samples is not None:
+        ds = ds.select(range(min(args.n_samples * 10, ds.num_rows)))
+
     # remove short docs
     ds = ds.filter(
         lambda x: len(x[col_name].split(" ")) > args.length_filter)
-    ds = ds.select(range(args.n_samples))    
+
+    if args.n_samples is not None:
+        ds = ds.select(range(args.n_samples))
 
     ds = ds.shard(num_shards=ntasks, index=taskid)
 
@@ -119,7 +123,6 @@ def main(args):
                 col_name: ds["mixed_text"] + ds["human_text"],
                 "label": [1] * len(ds["mixed_text"]) + [0] * len(ds["human_text"]),
                 "prompt": ds["prompt"] * 2,
-                f"human_{col_name}": ds["human_text"] * 2,
                 f"truncated_human_{col_name}": ds["truncated_human_text"] * 2,
                 f"truncated_machine_{col_name}": ds["machine_text"] * 2,
                 "cut_at_sentence": ds["cut_at_sentence"] * 2,
@@ -263,8 +266,7 @@ def main(args):
     if taskid == 0:
         ds.save_to_disk(output_path)
         save_to_right_format(ds, output_path / "json_data_version.json")
-
-    print("EVERYTHING DONE")
+        print("EVERYTHING DONE")
 
 if __name__ == "__main__":
     main(custom_parse_args())
