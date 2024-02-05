@@ -69,7 +69,7 @@ def tokenize_mask_extract_and_apply(
 def cut_to_shortest(x, args, col_names):
     out = {}
     min_len = min(len(x[col_name].split(" ")) for col_name in col_names)
-    min_len = min(min_len, args.max_seq_len)
+    min_len = min(min_len, 150)
     for col_name in col_names:
         out[col_name] = " ".join(x[col_name].split(" ")[:min_len])
     return out
@@ -118,7 +118,6 @@ def main(args):
 
         ds = generation(args, ds)
         ds = ds.map(lambda x: cut_to_shortest(x, args, ["human_text", "mixed_text"]))
-        ds.to_json(str(output_path / "paired_ds.json"))
         future_df = {
                 col_name: ds["mixed_text"] + ds["human_text"],
                 "label": [1] * len(ds["mixed_text"]) + [0] * len(ds["human_text"]),

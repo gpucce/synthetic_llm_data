@@ -33,8 +33,8 @@ python -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_modif
     --max-batch-size 16 \
     --max-seq-len 150 \
     --n-samples 100 \
+    --selected-boundary 60 \
     --huggingface-or-vllm vllm \
-    --use-beam-search True \
     --project ita_news \
     --preprocessing change_it \
     --do-generation \

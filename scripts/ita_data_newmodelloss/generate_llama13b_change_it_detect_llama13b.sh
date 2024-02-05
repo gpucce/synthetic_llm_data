@@ -24,14 +24,9 @@ python -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_modif
     --output-path /leonardo_scratch/large/userexternal/gpuccett/data/ita_synthetic_data/llama_13b_change_gen_llama13b_detect_it_vllm \
     --seed 1 \
     --col-name full_text \
-    --max-new-tokens 200 \
-    --min-new-tokens 150 \
     --max-batch-size 8 \
-    --max-seq-len 150 \
-    --n-samples 100 \
     --huggingface-or-vllm huggingface \
-    --project ita_news \
-    --preprocessing change_it \
+    --n-modifications 20 \
     --human-key full_text \
     --dataset-type disk \
     --padding-side left \

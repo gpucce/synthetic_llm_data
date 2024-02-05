@@ -73,24 +73,27 @@ TITOLO = {title}
 ### Risposta: {article}
 """
 
-CHANGE_IT_MISTRAL_NON_CHAT_CONTINUATION="""{title}\n
+CHANGE_IT_MISTRAL_NON_CHAT_CONTINUATION="""{title}
 {article}"""
 
 CHANGE_IT_MISTRAL_CHAT_CONTINUATION="""[INST]
 Dato un titolo (TITOLO), scrivi un articolo di giornale di almeno 1000 parole di cui quello (TITOLO) sia il titolo.
-Scrivi nel modo più elegante possibile e non ripetere o scrivere assolutamente e in alcun caso il titolo (TITOLO). [/INST]
+Scrivi nel modo più elegante possibile e non ripetere il titolo (TITOLO). [/INST]
 
 TITOLO: {title}
 
 ARTICOLO: {article}
 """
 
+CHANGE_IT_LLAMA_NON_CHAT_CONTINUATION="""{title}
+{article}"""
+
 CHANGE_IT_LLAMA_CHAT_CONTINUATION="""[INST] <<SYS>>
-Write in Italian as an expert italian journalist that never repeats himself.
+Scrivi come un esperto giornalista italiano che non si ripete mai.
 <</SYS>>
 
 Dato un titolo (TITOLO), scrivi un articolo di giornale di almeno 1000 parole di cui quello (TITOLO) sia il titolo.
-Scrivi nel modo più elegante possibile e non ripetere o scrivere assolutamente e in alcun caso il titolo (TITOLO). [/INST]
+Scrivi nel modo più elegante possibile e non ripetere il titolo (TITOLO). [/INST]
 
 TITOLO: {title}
 
@@ -104,8 +107,14 @@ CHANGE_IT_FINETUNE_CHAT_CONTINUATION=(
 {title}
 
 ### Articolo:
-{article}
-""")
+{article}""")
+
+INVALSI_LLAMA_CHAT_CONTINUATION = {
+    'completa frase': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>> Dato il testo seguente:\nTesto:\n{testo}\n\n ragiona passo passo e completalo come richiesto nella domanda seguente indicando la risposta (risp) con questo formato <<RISPOSTA:{{risp}}>>[/INST]\n\nDomanda:\n\n{domanda}\n\nRisposta:\n",
+    'multipla': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>> Dato il testo seguente:\nTesto:\n{testo}\n\n ragiona passo passo e scegli la risposta corretta alla domanda seguente indicando la risposta (risp) con questo formato <<RISPOSTA:{{risp}}>>:[/INST]\n\nDomanda:\n\n{domanda}\n\nRisposta:\n",
+    'numero': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>> Dato il testo seguente:\nTesto:\n{testo}\n\n ragiona passo passo e rispondi con un numero come richiesto nella domanda seguente indicando la risposta (risp) con questo formato <<RISPOSTA:{{risp}}>>:[/INST]\n\nDomanda:\n\n{domanda}\n\nRisposta:\n",
+    'vero/falso': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>> Dato il testo seguente:\nTesto:\n{testo}\n\n ragiona passo passo e indica se la frase seguente è vera o falsa indicando la risposta (risp) con questo formato <<RISPOSTA:{{risp}}>>:[/INST]\n\nFrase:\n\n{domanda}\n\nRisposta:\n",
+}
 
 PROMPT_REGISTRY = {
     "semeval_task_3" : {
@@ -148,7 +157,18 @@ PROMPT_REGISTRY = {
             **{model_name: CHANGE_IT_MISTRAL_NON_CHAT_CONTINUATION for model_name
                 in ["Mistral-7B-v0.1", "Mixtral-8x7B-v0.1"]},
             **{model_name: CHANGE_IT_FINETUNE_CHAT_CONTINUATION for model_name
-                in ["llama-13b_change_it"]}
+                in ["llama-13b_change_it", "llama-13b_change_it_3981_samples", 
+                    "llama-13b_change_it_7962_samples", "llama-7b_change_it", 
+                    "llama-7b_change_it_3981_samples", "llama-7b_change_it_7962_samples",
+                    "mistral_change_it"]},
+            **{model_name: CHANGE_IT_LLAMA_NON_CHAT_CONTINUATION for model_name
+                in ["llama-2-7b-hf", "llama-2-13b-hf", "llama-2-70b-hf"]},
+        }
+    },
+    "invalsi": {
+        "invalsi_mate": {
+            **{model_name: INVALSI_LLAMA_CHAT_CONTINUATION for model_name
+                in ["llama-2-7b-chat-hf", "llama-2-13b-chat-hf", "llama-2-70b-chat-hf"]}
         }
     }
 }
@@ -222,6 +242,10 @@ class PromptPreprocessor():
             title=data_item["headline"],
             article=partial_prompt)
 
+    def interpolate_invalsi(self, data_item, partial_prompt, **kwargs):
+        return self.prompt[data_item["tipo"]].format(
+            testo=data_item["testo"], domanda=partial_prompt)
+
     def interpolate_prompt(self, data_item, partial_prompt, **kwargs):
         if self.preprocessing == "peerread":
             return self.interpolate_peerread_prompt(
@@ -235,6 +259,8 @@ class PromptPreprocessor():
             return self.interpolate_abstraction_prompt(data_item, **kwargs)
         elif self.preprocessing == "change_it":
             return self.interpolate_changeit(data_item, partial_prompt=partial_prompt)
+        elif self.preprocessing == "invalsi_mate":
+            return self.interpolate_invalsi(data_item, partial_prompt=partial_prompt)
 
         raise ValueError(f"Unknown formatting {self.preprocessing}")
 
@@ -268,8 +294,8 @@ class PromptPreprocessor():
         2. randomly at a closest sentence boundary in the 1/10th to 5/10th of the review.
         """
 
-
-        human_review = data_item[self.human_key]
+        original_human_review = data_item[self.human_key]
+        human_review = self.interpolate_prompt(data_item, partial_prompt=original_human_review)
 
         cut_at_sentence = random.randint(0, 2) > 1
 
@@ -284,19 +310,12 @@ class PromptPreprocessor():
                 num_of_words, cut_at_sentence, words, sentences)
         selected_boundary = min(selected_boundary, num_of_words)
 
-        interpolation_kwargs = {
-            "num_of_words_to_generate": num_of_words - (
-                selected_boundary if selected_boundary is not None else len(words)
-            )
-        }
-
         partial_prompt = " ".join(words[:selected_boundary])
-        updated_prompt = self.interpolate_prompt(data_item, partial_prompt, **interpolation_kwargs)
 
-        data_item["human_text"] = self.interpolate_prompt(data_item, human_review, **interpolation_kwargs)
+        data_item["human_text"] = human_review
         data_item["cut_at_sentence"] = cut_at_sentence
         data_item["human_end_boundary"] = selected_boundary
-        data_item["prompt"] = updated_prompt
-        data_item["truncated_human_text"] = partial_prompt
+        data_item["prompt"] = partial_prompt
+        data_item["truncated_human_text"] = original_human_review
 
         return data_item

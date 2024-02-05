@@ -23,7 +23,7 @@ python -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_modif
     --model-name "/leonardo_scratch/large/userexternal/gpuccett/models/hf_mistral/Mistral-7B-v0.1/" \
     --modifier-model "/leonardo_scratch/large/userexternal/gpuccett/models/hf_t5/it5" \
     --data-path /leonardo_scratch/large/userexternal/gpuccett/data/CHANGE-it/test.jsonl \
-    --output-path /leonardo_scratch/large/userexternal/gpuccett/data/ita_synthetic_data/mistral7b_change_it_vllm \
+    --output-path /leonardo_scratch/large/userexternal/gpuccett/data/ita_synthetic_data/mistral7b_vllm \
     --seed 1 \
     --human-key full_text \
     --col-name full_text \

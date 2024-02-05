@@ -32,7 +32,7 @@ srun python -m synthetic_llm_data.src.data_generation.data_generate \
     --max_prompts 30000 \
     --system_prompt "### Istruzione: Dato il testo '{}' scrivete un articolo di almeno 1000 parole in Italiano di cui quello è il titolo.\n\n### Risposta:" \
     --dataset_name CHANGE-it \
-    --prompts "file::/leonardo_scratch/large/userexternal/gpuccett/data/CHANGE-it/train.jsonl" \
+    --prompts "file::/leonardo_scratch/large/userexternal/gpuccett/data/CHANGE-it/train.json" \
     --output_path /leonardo_scratch/large/userexternal/gpuccett/data/m4_data/camoscio2_70b_v2_m4_beam_search_watch_eos \
     --human_key full_text \
     --tensor_parallel_size 4 \
