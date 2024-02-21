@@ -58,33 +58,35 @@ def blow_columns(x, col_name="text"):
 
     return pd.DataFrame.from_dict(future_df)
 
+
+def _get_pairs(x):
+    if x.shape[0] == 1:
+        return x
+
+    future_df = {"ID": [], "text": [], "text1": [], "text2": [], "target_token": [],
+        "first_more_abstract": [], "first_more_inclusive": [], "target_lemma1": [], 
+        "target_lemma2": []}
+
+    for i,j in combinations(range(x.shape[0]), 2):
+        if random.random() < 0.5:
+            j, i = i, j
+
+        future_df["text"].append(x["text"].iloc[i] + " " + x["text"].iloc[j])
+        future_df["text1"].append(x["text"].iloc[i])
+        future_df["text2"].append(x["text"].iloc[j])
+        future_df["ID"].append(x["ID"].iloc[i] + "_" + x["ID"].iloc[j])
+        # TODO: this probably needs fixing because word in i and j might be different
+        future_df["target_token"].append(x["target_token"].iloc[i])
+        future_df["first_more_abstract"].append(x["abs_mean"].iloc[i] > x["abs_mean"].iloc[j])
+        future_df["first_more_inclusive"].append(x["inc_mean"].iloc[i] > x["inc_mean"].iloc[j])
+        future_df["target_lemma1"].append(x["target_lemma"].iloc[i])
+        future_df["target_lemma2"].append(x["target_lemma"].iloc[j])
+
+    return pd.DataFrame(future_df)
+
 def get_pairs(df):
     df["ID_GROUP"] = df["ID"].apply(lambda x: x.split("_")[0])
     gdf = df.groupby("ID_GROUP")
-    def _get_pairs(x):
-        if x.shape[0] == 1:
-            return x
-
-        future_df = {"ID": [], "text": [], "text1": [], "text2": [], "target_token": [],
-            "first_more_abstract": [], "first_more_inclusive": [], "target_lemma1": [], 
-            "target_lemma2": []}
-
-        for i,j in combinations(range(x.shape[0]), 2):
-            if random.random() < 0.5:
-                j, i = i, j
-
-            future_df["text"].append(x["text"].iloc[i] + " " + x["text"].iloc[j])
-            future_df["text1"].append(x["text"].iloc[i])
-            future_df["text2"].append(x["text"].iloc[j])
-            future_df["ID"].append(x["ID"].iloc[i] + "_" + x["ID"].iloc[j])
-            # TODO: this is not perfect, probably needs fixing because word in i and j might be different
-            future_df["target_token"].append(x["target_token"].iloc[i])
-            future_df["first_more_abstract"].append(x["abs_mean"].iloc[i] > x["abs_mean"].iloc[j])
-            future_df["first_more_inclusive"].append(x["inc_mean"].iloc[i] > x["inc_mean"].iloc[j])
-            future_df["target_lemma1"].append(x["target_lemma"].iloc[i])
-            future_df["target_lemma2"].append(x["target_lemma"].iloc[j])
-
-        return pd.DataFrame(future_df)
 
     new_df = gdf.apply(_get_pairs)
     # new_df.drop("ID_GROUP", axis=1, inplace=True)

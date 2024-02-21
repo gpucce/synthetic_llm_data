@@ -32,6 +32,3 @@ srun python -u -m synthetic_llm_data.src.abstraction_pilot.lmrater_experiment \
     --max_new_tokens 20 \
     --max_seq_len 1 \
     --n_few_shots 2
-
-
-    # --data_path "/leonardo_scratch/large/userexternal/gpuccett/data/wemb_abstraction_data/pairs_abstraction_replacement_experiment_results_postprocessed.csv" \

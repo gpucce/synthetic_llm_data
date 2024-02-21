@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from datasets import Dataset, load_dataset
+from datasets import load_dataset
 
 
 from synthetic_llm_data.src.data_generation.data_complete import generation
