@@ -24,7 +24,7 @@ def detectpgt_plots(args):
             if path_obj / "dataset_config.json":
                 try:
                     (output_path / path_obj).mkdir(parents=True, exist_ok=True)
-                    fig, detectgpt_auroc, llh_auroc = plot_roc_from_dataset(
+                    _, detectgpt_auroc, llh_auroc = plot_roc_from_dataset(
                         path_obj, args.col_name, output_path / path_obj)
                     
                     close()
@@ -50,13 +50,16 @@ def detectpgt_plots(args):
     # style to late with rulers
     roc_df.style.format(precision=2).to_latex(
         output_path / "auroc_table.tex", hrules=True,
-        escape=True, multicol_align="l", multirow_align="c")
+        multicol_align="l", multirow_align="c")
 
 
 def supervised_plots(args):
-    future_df = {"detector":[], "generator":[], "accuracy":[], "mixed_data": []}
+    future_df = {"detector":[], "generator":[], "accuracy":[], "mixed_data": [], "n samples": []}
     output_path = Path(args.output_path)
-    for data_path in args.data_path:
+    for data_path in Path(args.data_path[0]).glob("**/trainer_state.json"):
+        data_path = data_path.parent
+        if "checkpoint" in str(data_path) or "500" in str(data_path):
+            continue
         with open(Path(data_path) / "trainer_state.json") as jf:
             trainer_state = json.load(jf)
             logs = trainer_state["log_history"]
@@ -70,13 +73,18 @@ def supervised_plots(args):
             future_df["mixed_data"].append("in_domain")
 
         future_df["detector"].append(experiment_args["model_name_or_path"].split("/")[-1])
+        future_df["n samples"].append(experiment_args["max_samples"])
         future_df["generator"].append(experiment_args["data_path"].split("/")[-2])
         future_df["accuracy"].append(final_eval_log["eval_accuracy"])
 
     acc_df = pd.DataFrame.from_dict(future_df)
+    acc_df = acc_df.pivot(
+        index=["generator", "mixed_data", "n samples"], columns=["detector"], values="accuracy")
+    # acc_df = acc_df.sort_values(["detector", "generator", "mixed_data", "accuracy", "n samples"])
+    # acc_df = acc_df.set_index(["detector", "generator"])
     acc_df.to_csv(output_path / "accuracy_table.csv")
     acc_df.to_latex(
-        output_path / "accuracy_table.tex", float_format="%.2f", index=False, escape=True)
+        output_path / "accuracy_table.tex", float_format="%.2f", escape=True)
 
     return acc_df
 

@@ -136,7 +136,7 @@ PROMPT_REGISTRY = {
             **{model_name:XSUM_NON_CHAT_CONTINUATION for model_name
                in ["llama-2-7b-hf", "llama-2-13b-hf", "llama-2-70b-hf",
                    "gpt2-xl-hf", "gpt2-hf", "gpt2-small-hf", "gpt2-medium",
-                   "tiny-random-llama"]}
+                   "tiny-random-llama", "llama-7b_xsum", "mistral_xsum"]}
         }
     },
     "wemb":{
