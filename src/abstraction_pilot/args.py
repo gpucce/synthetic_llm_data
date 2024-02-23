@@ -8,7 +8,7 @@ def lmrater_parse_args():
     parser.add_argument(
         "--dtype", type=str, default="bfloat16", choices=["bfloat16", "float16", "float32"])
     parser.add_argument("--project", type=str, default="wemb")
-    parser.add_argument("--selected_boundary", type=int, default=None)
+    parser.add_argument("--selected_boundary", type=int, default=100000)
     parser.add_argument("--split_at_random_length", action="store_true", default=False)
     return parser.parse_args()
 

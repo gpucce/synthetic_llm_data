@@ -46,7 +46,7 @@ def get_model_and_tokenizer(args):
         llm = LLM(
             model=args.name_or_path,
             tensor_parallel_size=args.tensor_parallel_size,
-            dtype=args.dtype, tokenizer_mode="slow")
+            dtype=args.dtype, tokenizer_mode="slow", seed=args.seed)
 
         tokenizer = llm.get_tokenizer()
 

@@ -83,7 +83,7 @@ def main(args):
     blown_df.to_csv(
         Path(args.output_path).parent / ("blown_" + Path(args.output_path).name), index=False)
 
-    with open(Path(args.output_path).parent / "experiment_params.json", "w") as f:
+    with open(Path(args.output_path).parent / "replacement_experiment_params.json", "w") as f:
         f.write(json.dumps(vars(args)))
 
 if __name__ == "__main__":
