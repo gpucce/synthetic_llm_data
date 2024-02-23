@@ -35,72 +35,64 @@ class PromptPreprocessor():
         few_shots = ""
         if self.n_few_shots > 0:
             _few_shots = []
-            few_shot_template = (
-                "SENT1: {text1}\n\nSENT2: {text2}\n\nWORD: {target_token}\n\nANSWER:")
-            assert few_shot_template in self.prompt, "Few shot template not found in the prompt"
-            few_shot_template += "{answer}"
-            for _ in range(self.n_few_shots):
-                few_shot_data_item = self.data[random.randint(0, len(self.data) - 1)]
-                while (few_shot_data_item["target_lemma1"] == data_item["target_lemma1"] or
-                       few_shot_data_item["target_lemma2"] == data_item["target_lemma2"]):
-                    few_shot_data_item = self.data[random.randint(0, len(self.data))]
+            _past_idxs = set()
 
-                answer = "sentence 1" if few_shot_data_item["first_more_abstract"] else "sentence 2"
-                answer += "\n\n"
-                few_shot_prompt = few_shot_template.format(
-                    text1=few_shot_data_item["text1"],
-                    text2=few_shot_data_item["text2"],
-                    target_token=few_shot_data_item["target_token"],
-                    answer=answer
-                )
-                _few_shots.append(few_shot_prompt)
+            if self.preprocessing in ["abstraction", "inclusiveness"]:
+                few_shot_template = (
+                    "SENT1: {text1}\n\nSENT2: {text2}\n\nWORD: {target_token}\n\nANSWER:")
+                assert few_shot_template in self.prompt, "Few shot template not found in the prompt"
+                few_shot_template += "{answer}"
+            elif self.preprocessing == ["abstraction_regression", "inclusiveness_regression"]:
+                few_shot_template = (
+                    "SENT: {text1}\n\nWORD: {target_token}\n\nANSWER:")
+                assert few_shot_template in self.prompt, "Few shot template not found in the prompt"
+                few_shot_template += "\"the rank is: {answer}\""
 
-            few_shots = (f"Here are {self.n_few_shots} examples of the task:\n\n" +
-                "".join(_few_shots))
 
-        # TODO: this is ugly and needs fixing
-        return self.prompt.format(
-            text1=data_item["text1"],
-            text2=data_item.get("text2", None),
-            target_token=data_item["target_token"],
-            few_shots = few_shots
-        )
-
-    def interpolate_abstraction_regression_prompt(self, data_item, **kwargs):
-        few_shots = ""
-        if self.n_few_shots > 0:
-            _few_shots = []
-            _past_idxs = []
-            few_shot_template = (
-                "SENT: {text1}\n\nWORD: {target_token}\n\nANSWER:")
-            assert few_shot_template in self.prompt, "Few shot template not found in the prompt"
-            few_shot_template += "\"the rank is: {answer}\""
             for _ in range(self.n_few_shots):
                 idx = random.randint(0, len(self.data) - 1)
                 while idx in _past_idxs:
                     idx = random.randint(0, len(self.data) - 1)
-                _past_idxs.append(idx)
+                _past_idxs.add(idx)
                 few_shot_data_item = self.data[idx]
 
-                # TODO: this is hardcoded might need changing
-                answer = str(round(5 * few_shot_data_item["abs_mean"]))
-                
-                few_shot_prompt = few_shot_template.format(
-                    text1=few_shot_data_item["text"],
-                    target_token=few_shot_data_item["target_token"],
-                    answer=answer
-                )
+                if self.preprocessing in ["abstraction", "inclusiveness"]:
+                    answer = ("sentence 1"
+                              if few_shot_data_item["first_more_abstract"] else "sentence 2")
+                    few_shot_prompt = few_shot_template.format(
+                        text1=few_shot_data_item["text1"],
+                        text2=few_shot_data_item["text2"],
+                        target_token=few_shot_data_item["target_token"],
+                        answer=answer
+                    )
+                elif self.preprocessing in ["abstraction_regression", "inclusiveness_regression"]:
+                    # TODO: this is hardcoded might need changing
+                    answer = str(round(5 * few_shot_data_item["abs_mean"])).replace("0", "1")
+                    few_shot_prompt = few_shot_template.format(
+                        text1=few_shot_data_item["text"],
+                        target_token=few_shot_data_item["target_token"],
+                        answer=answer
+                    )
                 few_shot_prompt += "\n\n"
                 _few_shots.append(few_shot_prompt)
 
             few_shots = (f"Here are {self.n_few_shots} examples of the task:\n\n" +
                 "".join(_few_shots))
 
-        return self.prompt.format(
-            text1=data_item["text"],
-            target_token=data_item["target_token"],
-            few_shots = few_shots
-        )
+        if self.preprocessing in ["abstraction", "inclusiveness"]:
+            return self.prompt.format(
+                text1=data_item["text1"],
+                text2=data_item["text2"],
+                target_token=data_item["target_token"],
+                few_shots = few_shots
+            )
+        elif self.preprocessing in ["abstraction_regression", "inclusiveness_regression"]:
+            return self.prompt.format(
+                text1=data_item["text"],
+                target_token=data_item["target_token"],
+                few_shots = few_shots
+            )
+
 
     def interpolate_outfox_prompt(self, data_item, partial_prompt, **kwargs):
         return self.prompt.format(
@@ -126,10 +118,9 @@ class PromptPreprocessor():
                 data_item, partial_prompt, **kwargs)
         elif self.preprocessing == "xsum":
             return self.prompt.format(data_item, document=partial_prompt, **kwargs)
-        elif self.preprocessing == "abstraction":
+        elif self.preprocessing in [
+            "abstraction", "inclusiveness", "abstraction_regression", "inclusiveness_regression"]:
             return self.interpolate_abstraction_prompt(data_item, **kwargs)
-        elif self.preprocessing == "abstraction_regression":
-            return self.interpolate_abstraction_regression_prompt(data_item, **kwargs)
         elif self.preprocessing == "change_it":
             return self.interpolate_changeit(data_item, partial_prompt=partial_prompt)
         elif self.preprocessing == "invalsi_mate":

@@ -20,11 +20,11 @@ source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
 
 srun python -u -m synthetic_llm_data.src.abstraction_pilot.lmrater_experiment \
     --data_path "/leonardo_scratch/large/userexternal/gpuccett/data/wemb_abstraction_data/pilot_dataset_en_utf8.csv" \
-    --output_path "/leonardo_scratch/large/userexternal/gpuccett/data/wemb_abstraction_data/2_shots_bis/few_shots_test_70b_retry_2.csv" \
+    --output_path "/leonardo_scratch/large/userexternal/gpuccett/data/wemb_abstraction_data/inclusiveness/2_shots_bis/few_shots_test_70b_retry_2.csv" \
     --temperature 0.8 \
     --max_batch_size 16 \
     --name_or_path "../models/hf_llama/llama-2-70b-chat-hf" \
-    --preprocessing "abstraction" \
+    --preprocessing "inclusiveness" \
     --project "wemb" \
     --human_key "text" \
     --padding_side "left" \
