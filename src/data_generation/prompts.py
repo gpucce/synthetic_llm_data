@@ -42,7 +42,7 @@ class PromptPreprocessor():
                     "SENT1: {text1}\n\nSENT2: {text2}\n\nWORD: {target_token}\n\nANSWER:")
                 assert few_shot_template in self.prompt, "Few shot template not found in the prompt"
                 few_shot_template += "{answer}"
-            elif self.preprocessing == ["abstraction_regression", "inclusiveness_regression"]:
+            elif self.preprocessing in ["abstraction_regression", "inclusiveness_regression"]:
                 few_shot_template = (
                     "SENT: {text1}\n\nWORD: {target_token}\n\nANSWER:")
                 assert few_shot_template in self.prompt, "Few shot template not found in the prompt"
@@ -57,8 +57,9 @@ class PromptPreprocessor():
                 few_shot_data_item = self.data[idx]
 
                 if self.preprocessing in ["abstraction", "inclusiveness"]:
-                    answer = ("sentence 1"
-                              if few_shot_data_item["first_more_abstract"] else "sentence 2")
+                    _key = ("first_more_abstract"
+                            if "abstraction" in self.preprocessing else "first_more_inclusive")
+                    answer = "sentence 1" if few_shot_data_item[_key] else "sentence 2"
                     few_shot_prompt = few_shot_template.format(
                         text1=few_shot_data_item["text1"],
                         text2=few_shot_data_item["text2"],
@@ -67,7 +68,8 @@ class PromptPreprocessor():
                     )
                 elif self.preprocessing in ["abstraction_regression", "inclusiveness_regression"]:
                     # TODO: this is hardcoded might need changing
-                    answer = str(round(5 * few_shot_data_item["abs_mean"])).replace("0", "1")
+                    _key = "abs_mean" if "abstraction" in self.preprocessing else "inc_mean"
+                    answer = str(round(5 * few_shot_data_item[_key])).replace("0", "1")
                     few_shot_prompt = few_shot_template.format(
                         text1=few_shot_data_item["text"],
                         target_token=few_shot_data_item["target_token"],

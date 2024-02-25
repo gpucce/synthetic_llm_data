@@ -26,10 +26,11 @@ srun python -u -m synthetic_llm_data.src.abstraction_pilot.lmrater_experiment \
     --name_or_path "../models/hf_llama/llama-2-7b-chat-hf" \
     --preprocessing "inclusiveness" \
     --project "wemb" \
+    --huggingface_or_vllm "vllm" \
     --human_key "text" \
     --min_new_tokens 10 \
     --max_new_tokens 20 \
-    --max_seq_len 1 \
+    --max_seq_len 1
 
 
 

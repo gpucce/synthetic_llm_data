@@ -8,7 +8,8 @@ python -u -m synthetic_llm_data.src.abstraction_pilot.lmranker_experiment \
     --name_or_path "../models/hf_llama/llama-2-70b-chat-hf" \
     --preprocessing "inclusiveness_regression" \
     --project "wemb" \
-    --huggingface_or_vllm "huggingface" \
+    --huggingface_or_vllm "vllm" \
+    --tensor_parallel_size 4 \
     --human_key "text" \
     --padding_side "left" \
     --min_new_tokens 10 \

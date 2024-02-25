@@ -18,8 +18,8 @@ export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
 # srun 
 python -m synthetic_llm_data.src.invalsi.generation_experiment \
-    --name_or_path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-7b-chat-hf/" \
-    --output_path /leonardo_scratch/large/userexternal/gpuccett/data/ita_llm_data/invalsi_data/invalsi_mate_clean_predicted_llama7b_chat.csv \
+    --name_or_path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/Mixtral-8x7B-Instruct-v0.1" \
+    --output_path /leonardo_scratch/large/userexternal/gpuccett/data/ita_llm_data/invalsi_data/invalsi_mate_clean_predicted_mixtral.csv \
     --data_path /leonardo_scratch/large/userexternal/gpuccett/data/ita_llm_data/invalsi_data/invalsi_mate_clean.csv \
     --seed 1 \
     --selected_boundary 1000 \
@@ -34,4 +34,3 @@ python -m synthetic_llm_data.src.invalsi.generation_experiment \
     --human_key domanda \
     --padding_side left \
     --dtype float16
-

@@ -9,6 +9,7 @@ python -u -m synthetic_llm_data.src.abstraction_pilot.lmranker_experiment \
     --preprocessing "inclusiveness_regression" \
     --project "wemb" \
     --human_key "text" \
+    --huggingface_or_vllm "vllm" \
     --padding_side "left" \
     --min_new_tokens 10 \
     --max_new_tokens 20 \

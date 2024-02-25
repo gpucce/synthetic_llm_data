@@ -192,10 +192,10 @@ CHANGE_IT_FINETUNE_CHAT = (
 {article}""")
 
 INVALSI_LLAMA_CHAT = {
-    'completa frase': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato il testo seguente:\nTesto:\n{testo}\n\n ragiona passo passo e completalo come richiesto nella domanda seguente indicando la risposta (risp) con questo formato <<RISPOSTA:{{risp}}>>[/INST]\n\nDomanda:\n\n{domanda}\n\nRisposta:\n", # pylint: disable=line-too-long
-    'multipla': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato il testo seguente:\nTesto:\n{testo}\n\n ragiona passo passo e scegli la risposta corretta alla domanda seguente indicando la risposta (risp) con questo formato <<RISPOSTA:{{risp}}>>:[/INST]\n\nDomanda:\n\n{domanda}\n\nRisposta:\n", # pylint: disable=line-too-long
-    'numero': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato il testo seguente:\nTesto:\n{testo}\n\n ragiona passo passo e rispondi con un numero come richiesto nella domanda seguente indicando la risposta (risp) con questo formato <<RISPOSTA:{{risp}}>>:[/INST]\n\nDomanda:\n\n{domanda}\n\nRisposta:\n", # pylint: disable=line-too-long
-    'vero/falso': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato il testo seguente:\nTesto:\n{testo}\n\n ragiona passo passo e indica se la frase seguente è vera o falsa indicando la risposta (risp) con questo formato <<RISPOSTA:{{risp}}>>:[/INST]\n\nFrase:\n\n{domanda}\n\nRisposta:\n", # pylint: disable=line-too-long
+    'completa frase': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato un testo (TESTO) ragiona passo passo e completalo come richiesto nella domanda (DOMANDA) seguente indicando la risposta (RISP) con questo formato ==CONCLUSIONE:RISP== [/INST]\n\nTESTO:\n\n{testo}\n\nDOMANDA:\n\n{domanda}\n\nRISPOSTA:\n\n", # pylint: disable=line-too-long
+    'multipla': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato un testo (TESTO) ragiona passo passo e scegli la risposta corretta alla domanda (DOMANDA) seguente tra quelle disponibili. Indica la soluzione (RISP) con questo formato ==CONCLUSIONE:RISP== [/INST]\n\nTESTO:\n\n{testo}\n\nDOMANDA:\n\n{domanda}\n\nRISPOSTA:\n\n", # pylint: disable=line-too-long
+    'numero': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato un testo (TESTO) ragiona passo passo e rispondi con un numero come richiesto nella domanda (DOMANDA) seguente indicando la risposta (RISP) con questo formato ==CONCLUSIONE:RISP== [/INST]\n\nTESTO:\n\n{testo}\n\nDOMANDA:\n\n{domanda}\n\nRISPOSTA:\n\n", # pylint: disable=line-too-long
+    'vero/falso': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato un testo (TESTO) ragiona passo passo e indica se la frase (FRASE) seguente è vera o falsa indicando la risposta (RISP) con questo formato ==CONCLUSIONE:risp== [/INST]\n\nTESTO:\n\n{testo}\n\nFRASE:\n\n{domanda}\n\nRISPOSTA:\n\n", # pylint: disable=line-too-long
 }
 
 PROMPT_REGISTRY = {
@@ -243,6 +243,6 @@ PROMPT_REGISTRY = {
     "invalsi": {
         "invalsi_mate": {
             **{model_name: INVALSI_LLAMA_CHAT for model_name
-                in LLAMA_CHAT_MODELS}}
+                in LLAMA_CHAT_MODELS + ["LLaMAntino-2-chat-13b-hf-ITA"]}}
     }
 }
