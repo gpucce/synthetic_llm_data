@@ -3,7 +3,7 @@ python -u -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_mo
     --modifier-model "/leonardo_scratch/large/userexternal/gpuccett/models/hf_t5/t5-3b" \
     --model-name "/leonardo_scratch/large/userexternal/gpuccett/models/hf_gpt/gpt2-hf" \
     --name-or-path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_gpt/gpt2-hf" \
-    --data-path "/leonardo_scratch/large/userexternal/gpuccett/data/xsum" \
+    --data-path "/leonardo_scratch/large/userexternal/gpuccett/datasets/xsum" \
     --do-generation \
     --col-name "document" \
     --do-modification \

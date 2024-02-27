@@ -15,7 +15,7 @@
 module purge
 module load cuda
 module load gcc
-source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
+source /leonardo_scratch/large/userexternal/gpuccett/datasets/data_venv/bin/activate
 
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
@@ -79,8 +79,8 @@ python -m synthetic_llm_data.src.data_generation.data_generate \
     --max_new_tokens 412 \
     --min_new_tokens 312 \
     --dataset_name outfox \
-    --prompts "/leonardo_scratch/large/userexternal/gpuccett/data/semeval2024-private/data/en/outfox_GPT4.jsonl" \
-    --output_path /leonardo_scratch/large/userexternal/gpuccett/data/semeval2024-private/data/en/outfox_bloomz_beamsearch_312.jsonl \
+    --prompts "/leonardo_scratch/large/userexternal/gpuccett/datasets/semeval2024-private/data/en/outfox_GPT4.jsonl" \
+    --output_path /leonardo_scratch/large/userexternal/gpuccett/datasets/semeval2024-private/data/en/outfox_bloomz_beamsearch_312.jsonl \
     --human_key human_text \
     --tensor_parallel_size 8 \
     --huggingface_or_vllm vllm \

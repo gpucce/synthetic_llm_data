@@ -14,14 +14,14 @@
 
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
-source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
+source /leonardo_scratch/large/userexternal/gpuccett/datasets/data_venv/bin/activate
 
 # srun 
 
 python -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_modification \
     --model-name "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-13b-hf/" \
-    --data-path /leonardo_scratch/large/userexternal/gpuccett/data/ita_synthetic_data/llama_13b_change_it_vllm \
-    --output-path /leonardo_scratch/large/userexternal/gpuccett/data/ita_synthetic_data/llama_13b_change_gen_llama13b_detect_it_vllm \
+    --data-path /leonardo_scratch/large/userexternal/gpuccett/datasets/ita_synthetic_data/llama_13b_change_it_vllm \
+    --output-path /leonardo_scratch/large/userexternal/gpuccett/datasets/ita_synthetic_data/llama_13b_change_gen_llama13b_detect_it_vllm \
     --seed 1 \
     --col-name full_text \
     --max-batch-size 8 \

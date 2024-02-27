@@ -14,7 +14,7 @@
 
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
-source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
+source /leonardo_scratch/large/userexternal/gpuccett/datasets/data_venv/bin/activate
 
 # srun 
 
@@ -22,8 +22,8 @@ python -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_modif
     --name-or-path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_mistral/Mistral-7B-Instruct-v0.2/" \
     --model-name "/leonardo_scratch/large/userexternal/gpuccett/models/hf_mistral/Mistral-7B-Instruct-v0.2/" \
     --modifier-model "/leonardo_scratch/large/userexternal/gpuccett/models/hf_t5/it5" \
-    --data-path /leonardo_scratch/large/userexternal/gpuccett/data/CHANGE-it/test.jsonl \
-    --output-path /leonardo_scratch/large/userexternal/gpuccett/data/ita_synthetic_data/mistral7b_instruct_change_it \
+    --data-path /leonardo_scratch/large/userexternal/gpuccett/datasets/CHANGE-it/test.jsonl \
+    --output-path /leonardo_scratch/large/userexternal/gpuccett/datasets/ita_synthetic_data/mistral7b_instruct_change_it \
     --seed 1 \
     --human-key full_text \
     --col-name full_text \

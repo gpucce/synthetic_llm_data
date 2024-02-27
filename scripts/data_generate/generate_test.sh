@@ -19,7 +19,7 @@ module load cuda
 
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
-source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
+source /leonardo_scratch/large/userexternal/gpuccett/datasets/data_venv/bin/activate
 
 srun python -m synthetic_llm_data.src.data_generation.data_generate \
     --name_or_path "" \
@@ -29,7 +29,7 @@ srun python -m synthetic_llm_data.src.data_generation.data_generate \
     --use_beam_search True \
     --system_prompt "" \
     --dataset_name outfox \
-    --prompts "/leonardo_scratch/large/userexternal/gpuccett/data/semeval2024-private/data/en/outfox_GPT4.jsonl" \
+    --prompts "/leonardo_scratch/large/userexternal/gpuccett/datasets/semeval2024-private/data/en/outfox_GPT4.jsonl" \
     --output_path ./synthetic_llm_data/outfox_test_chat.jsonl \
     --human_key human_text \
     --huggingface_or_vllm vllm \

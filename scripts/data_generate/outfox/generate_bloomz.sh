@@ -16,7 +16,7 @@ module purge
 module load gcc
 module load cuda
 
-source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
+source /leonardo_scratch/large/userexternal/gpuccett/datasets/data_venv/bin/activate
 
 # ray start
 
@@ -32,8 +32,8 @@ srun python -m synthetic_llm_data.src.data_generation.data_generate \
     --max_prompts 30000 \
     --system_prompt "### Istruzione: Dato il testo '{}' scrivete un articolo di almeno 1000 parole in Italiano di cui quello è il titolo.\n\n### Risposta:" \
     --dataset_name CHANGE-it \
-    --prompts "file::/leonardo_scratch/large/userexternal/gpuccett/data/CHANGE-it/train.json" \
-    --output_path /leonardo_scratch/large/userexternal/gpuccett/data/m4_data/camoscio2_70b_v2_m4_beam_search_watch_eos \
+    --prompts "file::/leonardo_scratch/large/userexternal/gpuccett/datasets/CHANGE-it/train.json" \
+    --output_path /leonardo_scratch/large/userexternal/gpuccett/datasets/m4_data/camoscio2_70b_v2_m4_beam_search_watch_eos \
     --human_key full_text \
     --tensor_parallel_size 4 \
     --preprocessing "bloomz_peerread"

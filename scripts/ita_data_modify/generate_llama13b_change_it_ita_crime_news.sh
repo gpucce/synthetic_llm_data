@@ -14,7 +14,7 @@
 
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
-source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
+source /leonardo_scratch/large/userexternal/gpuccett/datasets/data_venv/bin/activate
 
 # srun 
 
@@ -22,8 +22,8 @@ python -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_modif
     --name-or-path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-13b_change_it/" \
     --model-name "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-13b_change_it/" \
     --modifier-model "/leonardo_scratch/large/userexternal/gpuccett/models/hf_t5/it5" \
-    --data-path /leonardo_scratch/large/userexternal/gpuccett/data/Italian-Crime-News/italian_crime_news_utf8.csv \
-    --output-path /leonardo_scratch/large/userexternal/gpuccett/data/ita_synthetic_data/ita_crime_news/llama_13b_change_it_vllm \
+    --data-path /leonardo_scratch/large/userexternal/gpuccett/datasets/Italian-Crime-News/italian_crime_news_utf8.csv \
+    --output-path /leonardo_scratch/large/userexternal/gpuccett/datasets/ita_synthetic_data/ita_crime_news/llama_13b_change_it_vllm \
     --seed 1 \
     --col-name full_text \
     --max-new-tokens 200 \

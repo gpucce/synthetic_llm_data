@@ -14,14 +14,14 @@
 
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
-source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
+source /leonardo_scratch/large/userexternal/gpuccett/datasets/data_venv/bin/activate
 
 # srun 
 
 python -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_modification \
-    --data-path /leonardo_scratch/large/userexternal/gpuccett/data/CHANGE-it/test.jsonl \
+    --data-path /leonardo_scratch/large/userexternal/gpuccett/datasets/CHANGE-it/test.jsonl \
     --name-or-path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_camoscio/camoscio2_13b_v2/" \
-    --output-path /leonardo_scratch/large/userexternal/gpuccett/data/ita_synthetic_data/camoscio2_13b_change_it_vllm \
+    --output-path /leonardo_scratch/large/userexternal/gpuccett/datasets/ita_synthetic_data/camoscio2_13b_change_it_vllm \
     --model-name "/leonardo_scratch/large/userexternal/gpuccett/models/hf_camoscio/camoscio2_13b_v2/" \
     --modifier-model "/leonardo_scratch/large/userexternal/gpuccett/models/hf_t5/it5" \
     --seed 1 \

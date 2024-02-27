@@ -1,8 +1,8 @@
 #!/bin/bash
 
 python -u -m synthetic_llm_data.src.abstraction_pilot.lmranker_experiment \
-    --data_path "/leonardo_scratch/large/userexternal/gpuccett/data/wemb_abstraction_data/pilot_dataset_en_utf8.csv" \
-    --output_path "/leonardo_scratch/large/userexternal/gpuccett/data/wemb_abstraction_data/inclusiveness/3_shots/few_shots_ranker_test_13b.csv" \
+    --data_path "/leonardo_scratch/large/userexternal/gpuccett/datasets/wemb_abstraction_data/pilot_dataset_en_utf8.csv" \
+    --output_path "/leonardo_scratch/large/userexternal/gpuccett/datasets/wemb_abstraction_data/inclusiveness/3_shots/few_shots_ranker_test_13b.csv" \
     --temperature 0.8 \
     --max_batch_size 16 \
     --name_or_path "../models/hf_llama/llama-2-13b-chat-hf" \

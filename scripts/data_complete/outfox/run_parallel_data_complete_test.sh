@@ -18,7 +18,7 @@ module load cuda
 
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
-source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
+source /leonardo_scratch/large/userexternal/gpuccett/datasets/data_venv/bin/activate
 
 srun python -m synthetic_llm_data.src.data_generation.data_complete \
     --name_or_path /leonardo_scratch/large/userexternal/gpuccett/models/hf_gpt/gpt2-hf \
@@ -29,7 +29,7 @@ srun python -m synthetic_llm_data.src.data_generation.data_complete \
     --output_path ./data_complete_test \
     --tensor_parallel_size 1 \
     --preprocessing outfox \
-    --base_path "/leonardo_scratch/large/userexternal/gpuccett/data/semeval2024-private/data/" \
+    --base_path "/leonardo_scratch/large/userexternal/gpuccett/datasets/semeval2024-private/data/" \
     --split_names train \
     --split_files outfox_gpt4.csv \
     --human_key "human_text"
