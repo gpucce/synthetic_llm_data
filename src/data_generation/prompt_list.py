@@ -13,6 +13,16 @@ LLAMA_MODELS = [
     "tiny-random-llama"
 ]
 
+MISTRAL_MODELS = [
+    "Mistral-7B-v0.1",
+    "Mixtral-8x7B-v0.1"
+]
+
+MISTRAL_INSTRUCT_MODELS = [
+    "Mistral-7B-Instruct-v0.2",
+    "Mixtral-8x7B-Instruct-v0.1"
+]
+
 PEERREAD_NON_CHAT="""Title of the paper:
 {paper_title}
 
@@ -64,11 +74,7 @@ Partial News Article:
 
 XSUM_NON_CHAT = """{document}"""
 
-ABSTRACTION_LLAMA_CHAT = """[INST] <<SYS>>
-Answer as an experienced linguist.
-<</SYS>>
-
-Given two sentences, (SENT1) and (SENT2), both containing a word (WORD), please tell me if this word (WORD) is more abstract in the first sentence (SENT1), or in the second sentence (SENT2).
+_ABSTRACTION = """Given two sentences, (SENT1) and (SENT2), both containing a word (WORD), please tell me if this word (WORD) is more abstract in the first sentence (SENT1), or in the second sentence (SENT2).
 (Please answer by saying "sentence 1" or "sentence 2" only.) [/INST]
 
 {few_shots}SENT1: {text1}
@@ -79,11 +85,16 @@ WORD: {target_token}
 
 ANSWER:"""
 
-ABSTRACTION_REGRESSION_LLAMA_CHAT = """[INST] <<SYS>>
+
+ABSTRACTION_LLAMA_CHAT = """[INST] <<SYS>>
 Answer as an experienced linguist.
 <</SYS>>
 
-Given a sentences (SENT) and a word (WORD), please assign a rank (RANK) from 1 to 5 to the abstractness of the word (WORD) in the sentences (SENT).
+""" + _ABSTRACTION
+
+ABSTRACTION_MISTRAL_CHAT = """[INST] """ + _ABSTRACTION
+
+_ABSTRACTION_REGRESSION = """Given a sentences (SENT) and a word (WORD), please assign a rank (RANK) from 1 to 5 to the abstractness of the word (WORD) in the sentences (SENT).
 
 Ranking description:
 
@@ -101,11 +112,16 @@ WORD: {target_token}
 
 ANSWER:"""
 
-INCLUSIVENESS_LLAMA_CHAT = """[INST] <<SYS>>
+
+ABSTRACTION_REGRESSION_LLAMA_CHAT = """[INST] <<SYS>>
 Answer as an experienced linguist.
 <</SYS>>
 
-Given two sentences, (SENT1) and (SENT2), both containing a word (WORD), please tell me if this word (WORD) is more inclusive in the first sentence (SENT1), or in the second sentence (SENT2).
+""" + _ABSTRACTION_REGRESSION
+
+ABSTRACTION_REGRESSION_MISTRAL_CHAT = "[INST] " + _ABSTRACTION_REGRESSION
+
+_INCLUSIVENESS= """Given two sentences, (SENT1) and (SENT2), both containing a word (WORD), please tell me if this word (WORD) is more inclusive in the first sentence (SENT1), or in the second sentence (SENT2).
 Inclusiveness indicates the number of things the word (WORD) can refer to.
 
 (Please answer by saying "sentence 1" or "sentence 2" only.) [/INST]
@@ -118,11 +134,16 @@ WORD: {target_token}
 
 ANSWER:"""
 
-INCLUSIVENESS_REGRESSION_LLAMA_CHAT = """[INST] <<SYS>>
+
+INCLUSIVENESS_LLAMA_CHAT = """[INST] <<SYS>>
 Answer as an experienced linguist.
 <</SYS>>
 
-Given a sentences (SENT) and a word (WORD), please assign a rank (RANK) from 1 to 5 to the inclusiveness of the word (WORD) in the sentences (SENT).
+""" + _INCLUSIVENESS
+
+INCLUSIVENESS_MISTRAL_CHAT = """[INST] """ + _INCLUSIVENESS
+
+_INCLUSIVENESS_REGRESSION= """Given a sentences (SENT) and a word (WORD), please assign a rank (RANK) from 1 to 5 to the inclusiveness of the word (WORD) in the sentences (SENT).
 Inclusiveness indicates the number of things the word (WORD) can refer to.
 
 
@@ -141,6 +162,15 @@ Answer by only writing: "the rank is: (RANK)". [/INST]
 WORD: {target_token}
 
 ANSWER:"""
+
+
+INCLUSIVENESS_REGRESSION_LLAMA_CHAT = """[INST] <<SYS>>
+Answer as an experienced linguist.
+<</SYS>>
+
+""" + _INCLUSIVENESS_REGRESSION
+
+INCLUSIVNESS_REGRESSION_MISTRAL_CHAT = """[INST] """ + _INCLUSIVENESS_REGRESSION
 
 CHANGE_IT_CAMOSCIO_CHAT = """
 Di seguito è riportata una istruzione che descrive un task. Scrivete una risposta che completi in modo appropriato la richiesta.\n\n
@@ -216,13 +246,17 @@ PROMPT_REGISTRY = {
     },
     "wemb":{
         "abstraction": {
-            model_name: ABSTRACTION_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name: ABSTRACTION_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name: ABSTRACTION_MISTRAL_CHAT for model_name in MISTRAL_INSTRUCT_MODELS}},
         "abstraction_regression": {
-            model_name: ABSTRACTION_REGRESSION_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name: ABSTRACTION_REGRESSION_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name: ABSTRACTION_REGRESSION_MISTRAL_CHAT for model_name in MISTRAL_INSTRUCT_MODELS}},
         "inclusiveness": {
-            model_name: INCLUSIVENESS_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name: INCLUSIVENESS_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name: INCLUSIVENESS_MISTRAL_CHAT for model_name in MISTRAL_INSTRUCT_MODELS}},
         "inclusiveness_regression": {
-            model_name: INCLUSIVENESS_REGRESSION_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name: INCLUSIVENESS_REGRESSION_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name: INCLUSIVENESS_REGRESSION_LLAMA_CHAT for model_name in MISTRAL_INSTRUCT_MODELS}}
     },
     "ita_news":{
         "change_it": {

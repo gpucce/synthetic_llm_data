@@ -19,7 +19,10 @@ def main(args):
 
     ds = generation(args, ds)
 
-    ds = ds.map(lambda x: {"preds": int(x["mixed_text"].split("the rank is: ")[-1][:1])})
+    try:
+        ds = ds.map(lambda x: {"preds": int(x["mixed_text"].split("the rank is: ")[-1][:1])})
+    except:
+        pass
     Path(args.output_path).parent.mkdir(parents=True, exist_ok=True)
     ds.to_csv(args.output_path)
 

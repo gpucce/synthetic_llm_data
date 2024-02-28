@@ -16,7 +16,7 @@ module purge
 module load gcc
 module load cuda
 
-source /leonardo_scratch/large/userexternal/gpuccett/datasets/data_venv/bin/activate
+source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
 
 # ray start
 

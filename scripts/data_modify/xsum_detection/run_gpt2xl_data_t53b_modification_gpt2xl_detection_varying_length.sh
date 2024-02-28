@@ -15,7 +15,7 @@
 
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
-source /leonardo_scratch/large/userexternal/gpuccett/datasets/data_venv/bin/activate
+source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
 
 srun python -u -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_modification \
     --output-path "detectGPT_experiments/xsum/gpt2xlgen_t5-3bmodif_gpt2xldetect_varying_length" \

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#!/bin/bash
+
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-task=4
@@ -16,19 +18,21 @@
 
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
-source /leonardo_scratch/large/userexternal/gpuccett/datasets/data_venv/bin/activate
+source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
 
 srun python -u -m synthetic_llm_data.src.abstraction_pilot.lmrater_experiment \
-    --data_path "/leonardo_scratch/large/userexternal/gpuccett/datasets/wemb_abstraction_data/pilot_dataset_en_utf8.csv" \
-    --output_path "/leonardo_scratch/large/userexternal/gpuccett/datasets/wemb_abstraction_data/inclusiveness/2_shots_bis/few_shots_test_70b_retry_2.csv" \
+    --data_path "/leonardo_scratch/large/userexternal/gpuccett/data/wemb_abstraction_data/pilot_dataset_en_utf8.csv" \
+    --output_path "/leonardo_scratch/large/userexternal/gpuccett/data/wemb_abstraction_data/abstraction/0_shots/rater_experiment/lmrater_experiment_llama13bchat.csv" \
     --temperature 0.8 \
     --max_batch_size 16 \
-    --name_or_path "../models/hf_llama/llama-2-70b-chat-hf" \
-    --preprocessing "inclusiveness" \
+    --huggingface_or_vllm "vllm" \
+    --name_or_path "../models/hf_llama/llama-2-13b-chat-hf" \
+    --preprocessing "abstraction" \
     --project "wemb" \
     --human_key "text" \
-    --padding_side "left" \
     --min_new_tokens 10 \
     --max_new_tokens 20 \
     --max_seq_len 1 \
-    --n_few_shots 2
+
+
+

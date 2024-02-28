@@ -12,7 +12,7 @@
 module purge
 module load cuda
 module load gcc
-source /leonardo_scratch/large/userexternal/gpuccett/datasets/data_venv/bin/activate
+source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
 
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#!/bin/bash
+
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-task=4
@@ -16,15 +18,15 @@
 
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
-source /leonardo_scratch/large/userexternal/gpuccett/datasets/data_venv/bin/activate
+source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
 
 srun python -u -m synthetic_llm_data.src.abstraction_pilot.lmrater_experiment \
-    --data_path "/leonardo_scratch/large/userexternal/gpuccett/datasets/wemb_abstraction_data/pairs_abstraction_replacement_experiment_results_postprocessed.csv" \
-    --output_path "/leonardo_scratch/large/userexternal/gpuccett/datasets/wemb_abstraction_data/abstraction/lmrater_experiment_llama7bchat.csv" \
+    --data_path "/leonardo_scratch/large/userexternal/gpuccett/data/wemb_abstraction_data/pilot_dataset_en_utf8.csv" \
+    --output_path "/leonardo_scratch/large/userexternal/gpuccett/data/wemb_abstraction_data/inclusiveness/0_shots/lmrater_experiment/lmrater_experiment_llama13bchat.csv" \
     --temperature 0.8 \
     --max_batch_size 16 \
-    --name_or_path "../models/hf_llama/llama-2-7b-chat-hf" \
-    --preprocessing "abstraction" \
+    --name_or_path "../models/hf_llama/llama-2-13b-chat-hf" \
+    --preprocessing "inclusiveness" \
     --project "wemb" \
     --human_key "text" \
     --min_new_tokens 10 \

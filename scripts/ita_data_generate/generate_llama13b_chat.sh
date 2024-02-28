@@ -14,7 +14,7 @@
 
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
-source /leonardo_scratch/large/userexternal/gpuccett/datasets/data_venv/bin/activate
+source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
 
 srun python -m synthetic_llm_data.src.synthetic_detection.detect_gpt.dataset_lm_modification \
     --data-path /leonardo_scratch/large/userexternal/gpuccett/datasets/CHANGE-it/test.jsonl \

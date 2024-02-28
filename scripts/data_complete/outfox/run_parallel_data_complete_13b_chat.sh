@@ -18,7 +18,7 @@ module load cuda
 
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
-source /leonardo_scratch/large/userexternal/gpuccett/datasets/data_venv/bin/activate
+source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
 
 srun python -m synthetic_llm_data.src.data_generation.data_complete \
     --name_or_path /leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/llama-2-13b-chat-hf/ \
