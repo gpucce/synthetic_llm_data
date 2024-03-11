@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 
 LLAMA_CHAT_MODELS = [
     "llama-2-7b-chat-hf", 
@@ -221,12 +222,31 @@ CHANGE_IT_FINETUNE_CHAT = (
 ### Articolo:
 {article}""")
 
+
 INVALSI_LLAMA_CHAT = {
-    'completa frase': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato un testo (TESTO) ragiona passo passo e completalo come richiesto nella domanda (DOMANDA) seguente indicando la risposta (RISP) con questo formato ==CONCLUSIONE:RISP== [/INST]\n\nTESTO:\n\n{testo}\n\nDOMANDA:\n\n{domanda}\n\nRISPOSTA:\n\n", # pylint: disable=line-too-long
-    'multipla': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato un testo (TESTO) ragiona passo passo e scegli la risposta corretta alla domanda (DOMANDA) seguente tra quelle disponibili. Indica la soluzione (RISP) con questo formato ==CONCLUSIONE:RISP== [/INST]\n\nTESTO:\n\n{testo}\n\nDOMANDA:\n\n{domanda}\n\nRISPOSTA:\n\n", # pylint: disable=line-too-long
-    'numero': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato un testo (TESTO) ragiona passo passo e rispondi con un numero come richiesto nella domanda (DOMANDA) seguente indicando la risposta (RISP) con questo formato ==CONCLUSIONE:RISP== [/INST]\n\nTESTO:\n\n{testo}\n\nDOMANDA:\n\n{domanda}\n\nRISPOSTA:\n\n", # pylint: disable=line-too-long
-    'vero/falso': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato un testo (TESTO) ragiona passo passo e indica se la frase (FRASE) seguente è vera o falsa indicando la risposta (RISP) con questo formato ==CONCLUSIONE:risp== [/INST]\n\nTESTO:\n\n{testo}\n\nFRASE:\n\n{domanda}\n\nRISPOSTA:\n\n", # pylint: disable=line-too-long
+    'completa frase': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato un testo (TESTO) completalo come richiesto e dai una risposta finale. [/INST]\n\nTESTO:\n\n{testo}\n\nDOMANDA:\n\n{domanda}\n\nRagioniamo passo passo", # pylint: disable=line-too-long
+    'multipla': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato un testo (TESTO) scegli la risposta alla domanda (DOMANDA) seguente tra quelle disponibili e dai una risposta finale. [/INST]\n\nTESTO:\n\n{testo}\n\nDOMANDA:\n\n{domanda}\n\nRagioniamo passo passo", # pylint: disable=line-too-long
+    'numero': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato un testo (TESTO) calcola il numero come richiesto nella domanda (DOMANDA) all fine dai come risposta finale solo un numero. [/INST]\n\nTESTO:\n\n{testo}\n\nDOMANDA:\n\n{domanda}\n\nRagioniamo passo passo", # pylint: disable=line-too-long
+    'vero/falso': "[INST] <<SYS>>\nWrite in Italian as a very deductive and precise student.\n<</SYS>>\n\nDato un testo (TESTO) indica se la frase (FRASE) che lo segue è vera o falsa e dai una risposta finale. [/INST]\n\nTESTO:\n\n{testo}\n\nFRASE:\n\n{domanda}\n\nRagioniamo passo passo", # pylint: disable=line-too-long
 }
+
+INVALSI_LLAMANTINO_CHAT = {
+    'completa frase': "[INST] <<SYS>>\nScrivi come uno studente molto accurato e preciso.\n<</SYS>>\n\nDato un testo (TESTO) completalo come richiesto e dai una risposta finale. [/INST]\n\nTESTO:\n\n{testo}\n\nDOMANDA:\n\n{domanda}\n\nRagioniamo passo passo", # pylint: disable=line-too-long
+    'multipla': "[INST] <<SYS>>\nScrivi come uno studente molto accurato e preciso.\n<</SYS>>\n\nDato un testo (TESTO) scegli la risposta alla domanda (DOMANDA) seguente tra quelle disponibili e dai una risposta finale. [/INST]\n\nTESTO:\n\n{testo}\n\nDOMANDA:\n\n{domanda}\n\nRagioniamo passo passo", # pylint: disable=line-too-long
+    'numero': "[INST] <<SYS>>\nScrivi come uno studente molto accurato e preciso.\n<</SYS>>\n\nDato un testo (TESTO) calcola il numero come richiesto nella domanda (DOMANDA) all fine dai come risposta finale solo un numero. [/INST]\n\nTESTO:\n\n{testo}\n\nDOMANDA:\n\n{domanda}\n\nRagioniamo passo passo", # pylint: disable=line-too-long
+    'vero/falso': "[INST] <<SYS>>\nScrivi come uno studente molto accurato e preciso.\n<</SYS>>\n\nDato un testo (TESTO) indica se la frase (FRASE) che lo segue è vera o falsa e dai una risposta finale. [/INST]\n\nTESTO:\n\n{testo}\n\nFRASE:\n\n{domanda}\n\nRagioniamo passo passo", # pylint: disable=line-too-long
+}
+
+INVALSI_MISTRAL_INSTRUCT = {
+    'completa frase': "[INST] Dato un testo (TESTO) completalo come richiesto e dai una risposta finale. [/INST]\n\nTESTO:\n\n{testo}\n\nDOMANDA:\n\n{domanda}\n\nRagioniamo passo passo", # pylint: disable=line-too-long
+    'multipla': "[INST] Dato un testo (TESTO) scegli la risposta alla domanda (DOMANDA) seguente tra quelle disponibili e dai una risposta finale. [/INST]\n\nTESTO:\n\n{testo}\n\nDOMANDA:\n\n{domanda}\n\nRagioniamo passo passo", # pylint: disable=line-too-long
+    'numero': "[INST] Dato un testo (TESTO) calcola il numero come richiesto nella domanda (DOMANDA) all fine dai come risposta finale solo il numero. [/INST]\n\nTESTO:\n\n{testo}\n\nDOMANDA:\n\n{domanda}\n\nRagioniamo passo passo", # pylint: disable=line-too-long
+    'vero/falso': "[INST] Dato un testo (TESTO) indica se la frase (FRASE) che lo segue è vera o falsa e dai una risposta finale. [/INST]\n\nTESTO:\n\n{testo}\n\nFRASE:\n\n{domanda}\n\nRagioniamo passo passo", # pylint: disable=line-too-long
+}
+
+WIKIMIA_LLAMA = """{input}"""
+
+WIKIMIA_MISTRAL = """{input}"""
 
 PROMPT_REGISTRY = {
     "semeval_task_3" : {
@@ -276,7 +296,13 @@ PROMPT_REGISTRY = {
     },
     "invalsi": {
         "invalsi_mate": {
-            **{model_name: INVALSI_LLAMA_CHAT for model_name
-                in LLAMA_CHAT_MODELS + ["LLaMAntino-2-chat-13b-hf-ITA"]}}
+            **{model_name: INVALSI_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name: INVALSI_LLAMANTINO_CHAT for model_name in ["llamantino-13b-ITA", "LLaMAntino-2-chat-13b-hf-ITA"]},
+            **{model_name: INVALSI_MISTRAL_INSTRUCT for model_name in MISTRAL_INSTRUCT_MODELS}}
+    },
+    "pre_gen": {"wikimia": {
+            **{model_name: WIKIMIA_LLAMA for model_name in LLAMA_MODELS},
+            **{model_name: WIKIMIA_MISTRAL for model_name in MISTRAL_MODELS}
+        }
     }
 }

@@ -1,5 +1,6 @@
 # pylint: disable=unused-argument
 import random
+from math import ceil
 from pathlib import Path
 
 from .utils import split_by_full_stop
@@ -48,7 +49,6 @@ class PromptPreprocessor():
                 assert few_shot_template in self.prompt, "Few shot template not found in the prompt"
                 few_shot_template += "\"the rank is: {answer}\""
 
-
             for _ in range(self.n_few_shots):
                 idx = random.randint(0, len(self.data) - 1)
                 while idx in _past_idxs:
@@ -69,7 +69,7 @@ class PromptPreprocessor():
                 elif self.preprocessing in ["abstraction_regression", "inclusiveness_regression"]:
                     # TODO: this is hardcoded might need changing
                     _key = "abs_mean" if "abstraction" in self.preprocessing else "inc_mean"
-                    answer = str(round(5 * few_shot_data_item[_key])).replace("0", "1")
+                    answer = str(ceil(5 * few_shot_data_item[_key]))
                     few_shot_prompt = few_shot_template.format(
                         text1=few_shot_data_item["text"],
                         target_token=few_shot_data_item["target_token"],
@@ -111,6 +111,9 @@ class PromptPreprocessor():
         return self.prompt[data_item["tipo"]].format(
             testo=data_item["testo"], domanda=partial_prompt)
 
+    def interpolate_wikimia(self, data_item, partial_prompt, **kwargs):
+        return self.prompt.format(input=partial_prompt)
+
     def interpolate_prompt(self, data_item, partial_prompt, **kwargs):
         if self.preprocessing == "peerread":
             return self.interpolate_peerread_prompt(
@@ -127,6 +130,8 @@ class PromptPreprocessor():
             return self.interpolate_changeit(data_item, partial_prompt=partial_prompt)
         elif self.preprocessing == "invalsi_mate":
             return self.interpolate_invalsi(data_item, partial_prompt=partial_prompt)
+        elif self.preprocessing == "wikimia":
+            return self.interpolate_wikimia(data_item, partial_prompt=partial_prompt)
 
         raise ValueError(f"Unknown formatting {self.preprocessing}")
 

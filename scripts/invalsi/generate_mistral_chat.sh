@@ -18,12 +18,12 @@ export CUDA_VISIBLE_DEVICES="0,1,2,3"
 
 # srun 
 python -m synthetic_llm_data.src.invalsi.generation_experiment \
-    --name_or_path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/Mistral-7B-Instruct-v0.2" \
-    --output_path /leonardo_scratch/large/userexternal/gpuccett/datasets/ita_llm_data/invalsi_data/invalsi_mate_clean_predicted_mistral.csv \
-    --data_path /leonardo_scratch/large/userexternal/gpuccett/datasets/ita_llm_data/invalsi_data/invalsi_mate_clean.csv \
+    --name_or_path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_mistral/Mistral-7B-Instruct-v0.2" \
+    --output_path /leonardo_scratch/large/userexternal/gpuccett/data/ita_llm_data/invalsi_data/answers_invalsi_mate_clean_mistral.csv \
+    --data_path /leonardo_scratch/large/userexternal/gpuccett/data/ita_llm_data/invalsi_data/invalsi_mate_clean.csv \
     --seed 1 \
     --selected_boundary 1000 \
-    --max_new_tokens 300 \
+    --max_new_tokens 500 \
     --min_new_tokens 50 \
     --max_batch_size 16 \
     --max_seq_len 0 \

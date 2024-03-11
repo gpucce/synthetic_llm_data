@@ -126,6 +126,8 @@ def main(args):
                 f"truncated_machine_{col_name}": ds["machine_text"] * 2,
                 "cut_at_sentence": ds["cut_at_sentence"] * 2,
             }
+        if "label" in ds:
+            future_df["old_label"] = ds["label"] * 2
 
         if "headline" in ds:
             future_df["headline"] = ds["headline"] * 2

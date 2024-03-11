@@ -28,7 +28,10 @@ def main(args):
         ds = ds.shuffle(args.seed).select(range(args.max_prompts))
 
     ds = generation(args, ds)
-    ds = ds.map(lambda x: {"answer": x["mixed_text"].split("==CONCLUSIONE:")[1].split("==")[0]})
+    try:
+        ds = ds.map(lambda x: {"answer": x["mixed_text"].split("==CONCLUSIONE:")[1].split("==")[0]})
+    except:
+        pass
     Path(args.output_path).parent.mkdir(parents=True, exist_ok=True)
     ds.to_csv(args.output_path)
 

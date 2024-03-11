@@ -1,9 +1,9 @@
 #!/bin/bash
 
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
-#SBATCH --cpus-per-task=8
-#SBATCH --gpus-per-task=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=32
+#SBATCH --gpus-per-task=4
 #SBATCH --wait-all-nodes=1
 #SBATCH --job-name=generate
 #SBATCH --account=IscrC_GELATINO
@@ -13,14 +13,15 @@
 #SBATCH --output slurm_logs/generate-%j.out
 
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
+export PATH="$PATH:/leonardo_scratch/large/userexternal/gpuccett/data/megablocks"
 
 # source /leonardo_scratch/large/userexternal/gpuccett/data/data_venv/bin/activate
 
 # srun 
 python -m synthetic_llm_data.src.invalsi.generation_experiment \
-    --name_or_path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_llama/Mixtral-8x7B-Instruct-v0.1" \
-    --output_path /leonardo_scratch/large/userexternal/gpuccett/datasets/ita_llm_data/invalsi_data/invalsi_mate_clean_predicted_mixtral.csv \
-    --data_path /leonardo_scratch/large/userexternal/gpuccett/datasets/ita_llm_data/invalsi_data/invalsi_mate_clean.csv \
+    --name_or_path "/leonardo_scratch/large/userexternal/gpuccett/models/hf_mistral/Mixtral-8x7B-Instruct-v0.1" \
+    --output_path /leonardo_scratch/large/userexternal/gpuccett/data/ita_llm_data/invalsi_data/invalsi_mate_clean_predicted_mixtral.csv \
+    --data_path /leonardo_scratch/large/userexternal/gpuccett/data/ita_llm_data/invalsi_data/invalsi_mate_clean.csv \
     --seed 1 \
     --selected_boundary 1000 \
     --max_new_tokens 300 \
@@ -28,6 +29,7 @@ python -m synthetic_llm_data.src.invalsi.generation_experiment \
     --max_batch_size 16 \
     --max_seq_len 0 \
     --huggingface_or_vllm vllm \
+    --tensor_parallel_size 2 \
     --use_beam_search True \
     --project invalsi \
     --preprocessing invalsi_mate \

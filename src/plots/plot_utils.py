@@ -1,9 +1,8 @@
 
 from pathlib import Path
-from datasets import load_dataset, load_from_disk
-from sklearn.metrics import auc, roc_curve
+from datasets import load_from_disk
+from sklearn.metrics import auc, roc_curve, classification_report
 import matplotlib.pyplot as plt
-from sklearn.metrics import classification_report
 
 
 def plot_roc(fpr, tpr, ax=None, label=None):
