@@ -12,6 +12,9 @@ datasets.disable_progress_bar()
 q_types = ["completa frase", "multipla", "numero", "vero/falso"]
 
 def answer_match(x, match_threshold=35):
+    if "ans" in x:
+        return x
+
     ans = x["machine_text"]
     if ans is None:
         return {"answer": "None", "ans": False}
@@ -98,12 +101,12 @@ def parse_args():
     parser.add_argument("--output_path", type=str, default=".")
     return parser.parse_args()
 
-def main(args):
-    dataset = datasets.load_dataset("csv", data_files=args.data_path)
+def compute_acc(data_path):
+    dataset = datasets.load_dataset("csv", data_files=data_path)
     dataset = dataset["train"]
     # dataset = dataset.map(lambda x: {"processed_ans": get_answer(x["machine_text"])})
     dataset = dataset.map(answer_match)
-    output = classification_report(dataset["risposta"], dataset["answer"], output_dict=True)
+
     future_df = {}
     global_acc = sum(dataset['ans']) / dataset.num_rows
     print(f"Global Acc: {global_acc}")
@@ -114,13 +117,19 @@ def main(args):
         print(f"    {q_type} acc: {local_acc}")
         future_df[f"{q_type}_acc"] = local_acc
 
-    # matching_df = pd.DataFrame.from_dict(output)
     exact_df = pd.DataFrame.from_dict(future_df, orient="index").T
+    return exact_df
+
+def main(args):
+    data_path = args.data_path
+
+    exact_df = compute_acc(data_path)
 
     output_path = Path(args.output_path)
     output_path.mkdir(parents=True, exist_ok=True)
-    # matching_df.to_csv(output_path / "matching.csv")
     exact_df.to_csv(output_path / "exact.csv")
+
+    return exact_df
 
 if __name__ == "__main__":
     main(parse_args())
