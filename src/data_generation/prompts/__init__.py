@@ -1,11 +1,112 @@
-# pylint: disable=unused-argument
+# pylint: disable=unused-argument, line-too-long
 import random
 from math import ceil
 from pathlib import Path
 
-from .utils import split_by_full_stop
-from .prompt_list import PROMPT_REGISTRY
+from ..utils import split_by_full_stop
+from .wikimia import WIKIMIA_LLAMA, WIKIMIA_MISTRAL
+from .invalsi import (
+    INVALSI_LLAMA_CHAT, INVALSI_LLAMANTINO_CHAT, INVALSI_MISTRAL_INSTRUCT, INVALSI_CAMOSCIO
+)
+from .change_it import (
+    CHANGE_IT_CAMOSCIO_CHAT, CHANGE_IT_LLAMA_CHAT, CHANGE_IT_MISTRAL_CHAT,
+    CHANGE_IT_MISTRAL_NON_CHAT, CHANGE_IT_FINETUNE_CHAT, CHANGE_IT_LLAMA_NON_CHAT
+)
 
+from .abstraction import (
+    ABSTRACTION_LLAMA_CHAT, ABSTRACTION_MISTRAL_CHAT, ABSTRACTION_REGRESSION_LLAMA_CHAT,
+    ABSTRACTION_REGRESSION_MISTRAL_CHAT, INCLUSIVENESS_LLAMA_CHAT, INCLUSIVENESS_MISTRAL_CHAT,
+    INCLUSIVENESS_REGRESSION_LLAMA_CHAT, INCLUSIVENESS_REGRESSION_MISTRAL_CHAT
+)
+
+from .semeval import (
+    PEERREAD_NON_CHAT, PEERREAD_LLAMA_CHAT, OUTFOX_LLAMA_CHAT, XSUM_LLAMA_CHAT, XSUM_NON_CHAT
+)
+
+LLAMA_CHAT_MODELS = [
+    "llama-2-7b-chat-hf", 
+    "llama-2-13b-chat-hf", 
+    "llama-2-70b-chat-hf", 
+    "tiny-random-llama"
+]
+
+LLAMA_MODELS = [
+    "llama-2-7b-hf", 
+    "llama-2-13b-hf", 
+    "llama-2-70b-hf",
+    "tiny-random-llama"
+]
+
+MISTRAL_MODELS = [
+    "Mistral-7B-v0.1",
+    "Mixtral-8x7B-v0.1"
+]
+
+MISTRAL_INSTRUCT_MODELS = [
+    "Mistral-7B-Instruct-v0.2",
+    "Mixtral-8x7B-Instruct-v0.1"
+]
+
+PROMPT_REGISTRY = {
+    "semeval_task_3" : {
+        "peerread" : {
+            **{model_name:PEERREAD_NON_CHAT for model_name in LLAMA_MODELS + ["gpt2-hf"]},
+            **{model_name:PEERREAD_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS}
+        },
+        "outfox" : {
+            model_name:OUTFOX_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS
+        },
+        "xsum": {
+            **{model_name:XSUM_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name:XSUM_NON_CHAT for model_name
+               in LLAMA_MODELS +["gpt2-xl-hf", "gpt2-hf", "gpt2-small-hf", "gpt2-medium",
+                   "llama-7b_xsum", "mistral_xsum"]}
+        }
+    },
+    "wemb":{
+        "abstraction": {
+            **{model_name: ABSTRACTION_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name: ABSTRACTION_MISTRAL_CHAT for model_name in MISTRAL_INSTRUCT_MODELS}},
+        "abstraction_regression": {
+            **{model_name: ABSTRACTION_REGRESSION_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name: ABSTRACTION_REGRESSION_MISTRAL_CHAT for model_name in MISTRAL_INSTRUCT_MODELS}},
+        "inclusiveness": {
+            **{model_name: INCLUSIVENESS_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name: INCLUSIVENESS_MISTRAL_CHAT for model_name in MISTRAL_INSTRUCT_MODELS}},
+        "inclusiveness_regression": {
+            **{model_name: INCLUSIVENESS_REGRESSION_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name: INCLUSIVENESS_REGRESSION_MISTRAL_CHAT for model_name in MISTRAL_INSTRUCT_MODELS}},
+        "abstraction_regression_ita": {},
+        "inclusiveness_regression_ita": {},
+    },
+    "ita_news":{
+        "change_it": {
+            **{model_name: CHANGE_IT_CAMOSCIO_CHAT for model_name
+                in ["camoscio2_13b_v2", "camoscio2-70b-lora-hf_v2"]},
+            **{model_name: CHANGE_IT_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name: CHANGE_IT_MISTRAL_CHAT for model_name
+                in ["Mixtral-8x7B-Instruct-v0.1", "Mistral-7B-Instruct-v0.2"]},
+            **{model_name: CHANGE_IT_MISTRAL_NON_CHAT for model_name
+                in ["Mistral-7B-v0.1", "Mixtral-8x7B-v0.1"]},
+            **{model_name: CHANGE_IT_FINETUNE_CHAT for model_name
+                in ["llama-13b_change_it", "llama-13b_change_it_3981_samples",
+                    "llama-13b_change_it_7962_samples", "llama-7b_change_it", 
+                    "llama-7b_change_it_3981_samples", "llama-7b_change_it_7962_samples",
+                    "mistral_change_it"]},
+            **{model_name: CHANGE_IT_LLAMA_NON_CHAT for model_name in LLAMA_MODELS}}
+    },
+    "invalsi": {
+        "invalsi_mate": {
+            **{model_name: INVALSI_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
+            **{model_name: INVALSI_LLAMANTINO_CHAT for model_name in ["llamantino-13b-ITA", "LLaMAntino-2-chat-13b-hf-ITA"]},
+            **{model_name: INVALSI_MISTRAL_INSTRUCT for model_name in MISTRAL_INSTRUCT_MODELS + ["Dante7b"]},
+            **{model_name: INVALSI_CAMOSCIO for model_name in ["camoscio2_13b_v2", "camoscio2-70b-lora-hf_v2"]}}
+    },
+    "pre_gen": {"wikimia": {
+            **{model_name: WIKIMIA_LLAMA for model_name in LLAMA_MODELS},
+            **{model_name: WIKIMIA_MISTRAL for model_name in MISTRAL_MODELS}}
+    }
+}
 
 class PromptPreprocessor():
     def __init__(self, args, data):
@@ -109,7 +210,7 @@ class PromptPreprocessor():
 
     def interpolate_invalsi(self, data_item, partial_prompt, **kwargs):
         return self.prompt[data_item["tipo"]].format(
-            testo=data_item["testo"], domanda=partial_prompt)
+            testo=data_item["testo"], few_shots="", domanda=partial_prompt)
 
     def interpolate_wikimia(self, data_item, partial_prompt, **kwargs):
         return self.prompt.format(input=partial_prompt)
