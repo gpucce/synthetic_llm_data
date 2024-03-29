@@ -15,8 +15,11 @@ from .change_it import (
 
 from .abstraction import (
     ABSTRACTION_LLAMA_CHAT, ABSTRACTION_MISTRAL_CHAT, ABSTRACTION_REGRESSION_LLAMA_CHAT,
-    ABSTRACTION_REGRESSION_MISTRAL_CHAT, INCLUSIVENESS_LLAMA_CHAT, INCLUSIVENESS_MISTRAL_CHAT,
-    INCLUSIVENESS_REGRESSION_LLAMA_CHAT, INCLUSIVENESS_REGRESSION_MISTRAL_CHAT
+    ABSTRACTION_REGRESSION_MISTRAL_CHAT, 
+    ABSTRACTION_REGRESSION_LLAMA_CHAT_ITA, ABSTRACTION_REGRESSION_MISTRAL_CHAT_ITA,
+    INCLUSIVENESS_LLAMA_CHAT, INCLUSIVENESS_MISTRAL_CHAT,
+    INCLUSIVENESS_REGRESSION_LLAMA_CHAT, INCLUSIVENESS_REGRESSION_MISTRAL_CHAT,
+    INCLUSIVENESS_REGRESSION_LLAMA_CHAT_ITA, INCLUSIVENESS_REGRESSION_MISTRAL_CHAT_ITA,
 )
 
 from .semeval import (
@@ -76,8 +79,12 @@ PROMPT_REGISTRY = {
         "inclusiveness_regression": {
             **{model_name: INCLUSIVENESS_REGRESSION_LLAMA_CHAT for model_name in LLAMA_CHAT_MODELS},
             **{model_name: INCLUSIVENESS_REGRESSION_MISTRAL_CHAT for model_name in MISTRAL_INSTRUCT_MODELS}},
-        "abstraction_regression_ita": {},
-        "inclusiveness_regression_ita": {},
+        "abstraction_regression_ita": {
+            **{model_name: ABSTRACTION_REGRESSION_MISTRAL_CHAT_ITA for model_name in MISTRAL_INSTRUCT_MODELS},
+            **{model_name: ABSTRACTION_REGRESSION_LLAMA_CHAT_ITA for model_name in LLAMA_CHAT_MODELS}},
+        "inclusiveness_regression_ita": {
+            **{model_name: INCLUSIVENESS_REGRESSION_MISTRAL_CHAT_ITA for model_name in MISTRAL_INSTRUCT_MODELS},
+            **{model_name: INCLUSIVENESS_REGRESSION_LLAMA_CHAT_ITA for model_name in LLAMA_CHAT_MODELS}},
     },
     "ita_news":{
         "change_it": {
@@ -134,21 +141,31 @@ class PromptPreprocessor():
         return self.prompt.format(document=partial_prompt)
 
     def interpolate_abstraction_prompt(self, data_item, **kwargs):
+        regular_processing = ["abstraction", "inclusiveness"]
+        regression_processing = [
+            "abstraction_regression", "inclusiveness_regression", 
+            "abstraction_regression_ita", "inclusiveness_regression_ita"]
         few_shots = ""
         if self.n_few_shots > 0:
             _few_shots = []
             _past_idxs = set()
 
-            if self.preprocessing in ["abstraction", "inclusiveness"]:
+            if self.preprocessing in regular_processing:
                 few_shot_template = (
                     "SENT1: {text1}\n\nSENT2: {text2}\n\nWORD: {target_token}\n\nANSWER:")
                 assert few_shot_template in self.prompt, "Few shot template not found in the prompt"
                 few_shot_template += "{answer}"
-            elif self.preprocessing in ["abstraction_regression", "inclusiveness_regression"]:
-                few_shot_template = (
-                    "SENT: {text1}\n\nWORD: {target_token}\n\nANSWER:")
-                assert few_shot_template in self.prompt, "Few shot template not found in the prompt"
-                few_shot_template += "\"the rank is: {answer}\""
+            elif self.preprocessing in regression_processing:
+                if "ita" not in self.preprocessing:
+                    few_shot_template = (
+                        "SENT: {text1}\n\nWORD: {target_token}\n\nANSWER:")
+                    assert few_shot_template in self.prompt, "Few shot template not found in the prompt"
+                    few_shot_template += "\"the rank is: {answer}\""
+                else:
+                    few_shot_template = (
+                        "FRASE: {text1}\n\nPAROLA: {target_token}\n\nRISPOSTA:")
+                    assert few_shot_template in self.prompt, "Few shot template not found in the prompt"
+                    few_shot_template += "Il livello è {answer}"
 
             for _ in range(self.n_few_shots):
                 idx = random.randint(0, len(self.data) - 1)
@@ -157,7 +174,7 @@ class PromptPreprocessor():
                 _past_idxs.add(idx)
                 few_shot_data_item = self.data[idx]
 
-                if self.preprocessing in ["abstraction", "inclusiveness"]:
+                if self.preprocessing in regular_processing:
                     _key = ("first_more_abstract"
                             if "abstraction" in self.preprocessing else "first_more_inclusive")
                     answer = "sentence 1" if few_shot_data_item[_key] else "sentence 2"
@@ -167,7 +184,7 @@ class PromptPreprocessor():
                         target_token=few_shot_data_item["target_token"],
                         answer=answer
                     )
-                elif self.preprocessing in ["abstraction_regression", "inclusiveness_regression"]:
+                elif self.preprocessing in regression_processing:
                     # TODO: this is hardcoded might need changing
                     _key = "abs_mean" if "abstraction" in self.preprocessing else "inc_mean"
                     answer = str(ceil(5 * few_shot_data_item[_key]))
@@ -182,18 +199,19 @@ class PromptPreprocessor():
             few_shots = (f"Here are {self.n_few_shots} examples of the task:\n\n" +
                 "".join(_few_shots))
 
-        if self.preprocessing in ["abstraction", "inclusiveness"]:
+        if self.preprocessing in regular_processing:
             return self.prompt.format(
                 text1=data_item["text1"],
                 text2=data_item["text2"],
                 target_token=data_item["target_token"],
-                few_shots = few_shots
+                few_shots=few_shots
             )
-        elif self.preprocessing in ["abstraction_regression", "inclusiveness_regression"]:
+
+        elif self.preprocessing in regression_processing:
             return self.prompt.format(
                 text1=data_item["text"],
                 target_token=data_item["target_token"],
-                few_shots = few_shots
+                few_shots=few_shots
             )
 
 
@@ -225,7 +243,9 @@ class PromptPreprocessor():
         elif self.preprocessing == "xsum":
             return self.prompt.format(data_item, document=partial_prompt, **kwargs)
         elif self.preprocessing in [
-            "abstraction", "inclusiveness", "abstraction_regression", "inclusiveness_regression"]:
+            "abstraction", "inclusiveness", 
+            "abstraction_regression", "inclusiveness_regression",
+            "abstraction_regression_ita", "inclusiveness_regression_ita"]:
             return self.interpolate_abstraction_prompt(data_item, **kwargs)
         elif self.preprocessing == "change_it":
             return self.interpolate_changeit(data_item, partial_prompt=partial_prompt)

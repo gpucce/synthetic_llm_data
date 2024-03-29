@@ -6,7 +6,12 @@ from pathlib import Path
 import datasets
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from vllm import LLM, SamplingParams
+
+try:
+    from vllm import LLM, SamplingParams
+except:
+    LLM, SamplingParams = None, None
+    print("running without vLLM")
 
 from .utils import get_strict_min_length_logits_processor
 from .prompts import PromptPreprocessor

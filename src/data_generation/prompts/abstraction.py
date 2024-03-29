@@ -97,3 +97,59 @@ Answer as an experienced linguist.
 """ + _INCLUSIVENESS_REGRESSION
 
 INCLUSIVENESS_REGRESSION_MISTRAL_CHAT = """[INST] """ + _INCLUSIVENESS_REGRESSION
+
+
+_ABSTRACTION_REGRESSION_ITA = """Data una frase (FRASE) e una parola (PAROLA), assegna un valore da 1 a 5 che indica il livello (LIVELLO) di astrazione della parola (PAROLA) nella frase (FRASE).
+
+Descrizione dei livelli:
+
+1 - La parola (PAROLA) è estremamente concreta (uno specifico cane)
+2 - La parola (PAROLA) è abbastanza concreta (un cane di una razza specifica)
+3 - La parola (PAROLA) è neutra (un cane tra tanti)
+4 - La parola (PAROLA) è abbastanza astratta (un cane da compagnia)
+5 - La parola (PAROLA) è estremamente astratta (un qualsiasi cane)
+
+Rispondi dicendo solo: Il livello è: (LIVELLO). [/INST]
+
+{few_shots}FRASE: {text1}
+
+PAROLA: {target_token}
+
+RISPOSTA:"""
+
+
+
+ABSTRACTION_REGRESSION_LLAMA_CHAT_ITA = """[INST] <<SYS>>
+Answer in Italian as an experienced linguist.
+<</SYS>>
+
+""" + _ABSTRACTION_REGRESSION_ITA
+
+ABSTRACTION_REGRESSION_MISTRAL_CHAT_ITA = "[INST] " + _ABSTRACTION_REGRESSION_ITA
+
+_INCLUSIVENESS_REGRESSION_ITA = """Data una frase (FRASE) e una parola (PAROLA), assegna un valore da 1 a 5 che indica il livello (LIVELLO) di inclusività della parola (PAROLA) nella frase (FRASE).
+
+Descrizione dei livelli:
+
+1 - La parola (PAROLA) è estremamente specifica (uno specifico cane)
+2 - La parola (PAROLA) è abbastanza specifica (un cane di una razza specifica)
+3 - La parola (PAROLA) è neutra (un cane tra tanti)
+4 - La parola (PAROLA) è abbastanza inclusiva (un cane da compagnia)
+5 - La parola (PAROLA) è estremamente inclusiva (un qualsiasi cane)
+
+Rispondi dicendo solo: Il livello è: (LIVELLO). [/INST]
+
+{few_shots}FRASE: {text1}
+
+PAROLA: {target_token}
+
+RISPOSTA:"""
+
+
+INCLUSIVENESS_REGRESSION_LLAMA_CHAT_ITA = """[INST] <<SYS>>
+Answer in Italian as an experienced linguist.
+<</SYS>>
+
+""" + _INCLUSIVENESS_REGRESSION_ITA
+
+INCLUSIVENESS_REGRESSION_MISTRAL_CHAT_ITA = """[INST] """ + _INCLUSIVENESS_REGRESSION_ITA
