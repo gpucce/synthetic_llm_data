@@ -34,3 +34,5 @@ where `--name-or-path` is the path to the model that generates the synthetic tex
 Instead `--data-path` is the path to the dataset.
 
 
+> **Note**  
+> The experiments are meant to be run in a slurm cluster although they should work with minor changes (e.g. removing the `srun` commands) also in a local machine.  
