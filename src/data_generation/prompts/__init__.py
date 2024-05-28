@@ -196,8 +196,12 @@ class PromptPreprocessor():
                 few_shot_prompt += "\n\n"
                 _few_shots.append(few_shot_prompt)
 
-            few_shots = (f"Here are {self.n_few_shots} examples of the task:\n\n" +
-                "".join(_few_shots))
+            if "ita" not in self.preprocessing:
+                few_shots = (f"Here are {self.n_few_shots} examples of the task:\n\n" +
+                    "".join(_few_shots))
+            else:
+                few_shots = (f"Ecco {self.n_few_shots} esempi del compito:\n\n" +
+                    "".join(_few_shots))
 
         if self.preprocessing in regular_processing:
             return self.prompt.format(
